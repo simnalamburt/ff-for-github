@@ -139,18 +139,14 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
   };
   const signature = `${prMatch.owner}/${prMatch.repo}#${prMatch.pullNumber}`;
 
-  // Find mount target
-  //
-  // Prefer the discussion sidebar as a mount target, but fallback to the header
-  // if GitHub shifts the layout.
+  // Find mount target in the PR sidebar only.
   const mountTarget =
     document.querySelector<HTMLElement>("#partial-discussion-sidebar") ??
     document.querySelector<HTMLElement>("#pr-conversation-sidebar") ??
-    document.querySelector<HTMLElement>("main h1")?.closest<HTMLElement>("header") ??
     null;
   if (!mountTarget) {
-    await sleep(250);
-    return refresh(root, setView);
+    removeRoot(root);
+    return;
   }
 
   ensureMounted(root, mountTarget);

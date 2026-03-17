@@ -139,17 +139,16 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
   };
   const signature = `${prMatch.owner}/${prMatch.repo}#${prMatch.pullNumber}`;
 
-  // Find mount target in the PR sidebar only.
-  const mountTarget =
-    document.querySelector<HTMLElement>("#partial-discussion-sidebar") ??
-    document.querySelector<HTMLElement>("#pr-conversation-sidebar") ??
-    null;
+  // Find mount target in the PR sidebar
+  const mountTarget = document.querySelector<HTMLElement>("#partial-discussion-sidebar");
   if (!mountTarget) {
     removeRoot(root);
     return;
   }
-
-  ensureMounted(root, mountTarget);
+  // Ensure the root is mounted properly
+  if (mountTarget.nextElementSibling !== root) {
+    mountTarget.insertAdjacentElement("afterend", root);
+  }
 
   const cached = pageState.cache.get(signature);
 
@@ -201,26 +200,6 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
     if (pageState.pendingKey === signature) {
       pageState.pendingKey = null;
     }
-  }
-}
-
-function ensureMounted(root: HTMLDivElement, mountTarget: HTMLElement) {
-  const shouldAppend = mountTarget.id === "pr-conversation-sidebar";
-
-  if (shouldAppend) {
-    // The sidebar wrapper is the outer fallback container, so append the card
-    // as its last child instead of inserting it between GitHub-owned siblings.
-    if (root.parentElement !== mountTarget || mountTarget.lastElementChild !== root) {
-      mountTarget.append(root);
-    }
-    return;
-  }
-
-  if (
-    root.previousElementSibling !== mountTarget ||
-    root.parentElement !== mountTarget.parentElement
-  ) {
-    mountTarget.insertAdjacentElement("afterend", root);
   }
 }
 

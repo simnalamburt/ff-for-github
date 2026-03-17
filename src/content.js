@@ -208,7 +208,6 @@ function buildViewModel(result) {
         status: result.status,
         title: "Fast-forward status unavailable",
         detail: "GitHub did not return a comparison state this extension understands.",
-        meta,
       };
   }
 }

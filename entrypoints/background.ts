@@ -1,4 +1,4 @@
-import { browser } from 'wxt/browser';
+import { browser } from "wxt/browser";
 
 import {
   GET_PULL_REQUEST_STATUS,
@@ -6,7 +6,7 @@ import {
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
-} from '../lib/ghff';
+} from "../lib/ghff";
 
 type RuntimeWithMessageCallback = {
   onMessage: {
@@ -55,12 +55,12 @@ export default defineBackground(() => {
 
 function isPullRequestStatusRequest(message: unknown): message is PullRequestStatusRequest {
   return (
-    typeof message === 'object' &&
+    typeof message === "object" &&
     message !== null &&
-    'type' in message &&
-    'owner' in message &&
-    'repo' in message &&
-    'pullNumber' in message &&
+    "type" in message &&
+    "owner" in message &&
+    "repo" in message &&
+    "pullNumber" in message &&
     (message as { type?: unknown }).type === GET_PULL_REQUEST_STATUS
   );
 }
@@ -82,23 +82,23 @@ async function getPullRequestStatus({
     owner,
     repo,
     pullNumber,
-    baseRef: pullRequest.base?.ref ?? '',
-    headRef: pullRequest.head?.ref ?? '',
-    baseSha: pullRequest.base?.sha ?? '',
-    headSha: pullRequest.head?.sha ?? '',
+    baseRef: pullRequest.base?.ref ?? "",
+    headRef: pullRequest.head?.ref ?? "",
+    baseSha: pullRequest.base?.sha ?? "",
+    headSha: pullRequest.head?.sha ?? "",
     baseRepository,
     headRepository,
-    state: pullRequest.state ?? 'open',
+    state: pullRequest.state ?? "open",
     aheadBy: 0,
     behindBy: 0,
-    status: 'unknown' as PullRequestComparisonStatus,
+    status: "unknown" as PullRequestComparisonStatus,
     canFastForward: false,
   };
 
-  if (result.state !== 'open') {
+  if (result.state !== "open") {
     return {
       ...result,
-      status: 'closed',
+      status: "closed",
     };
   }
 
@@ -107,7 +107,7 @@ async function getPullRequestStatus({
   if (!baseRepository || !headRepository || baseRepository !== headRepository) {
     return {
       ...result,
-      status: 'cross-repository',
+      status: "cross-repository",
     };
   }
 
@@ -117,11 +117,11 @@ async function getPullRequestStatus({
 
   return {
     ...result,
-    comparisonStatus: comparison.status ?? 'unknown',
+    comparisonStatus: comparison.status ?? "unknown",
     aheadBy: comparison.ahead_by ?? 0,
     behindBy: comparison.behind_by ?? 0,
     status: getFastForwardStatus(comparison.status),
-    canFastForward: comparison.status === 'ahead',
+    canFastForward: comparison.status === "ahead",
   };
 }
 
@@ -129,16 +129,16 @@ function getFastForwardStatus(comparisonStatus: string | undefined): PullRequest
   // GitHub's compare API already tells us the ancestry relationship, so map it
   // directly to the UI states used by the content script.
   switch (comparisonStatus) {
-    case 'ahead':
-      return 'ff-possible';
-    case 'identical':
-      return 'up-to-date';
-    case 'behind':
-      return 'base-ahead';
-    case 'diverged':
-      return 'diverged';
+    case "ahead":
+      return "ff-possible";
+    case "identical":
+      return "up-to-date";
+    case "behind":
+      return "base-ahead";
+    case "diverged":
+      return "diverged";
     default:
-      return 'unknown';
+      return "unknown";
   }
 }
 
@@ -147,15 +147,15 @@ async function githubRequest(pathname: string) {
   // fails the same way in the content script.
   const response = await fetch(`https://api.github.com${pathname}`, {
     headers: {
-      Accept: 'application/vnd.github+json',
-      'X-GitHub-Api-Version': '2022-11-28',
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
     },
   });
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
     const message =
-      data && typeof data.message === 'string'
+      data && typeof data.message === "string"
         ? data.message
         : `GitHub API request failed with status ${response.status}.`;
     throw new Error(message);

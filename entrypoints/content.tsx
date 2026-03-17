@@ -1,22 +1,22 @@
-import { Show, createSignal, type Component } from 'solid-js';
-import { render } from 'solid-js/web';
-import { browser } from 'wxt/browser';
+import { Show, createSignal, type Component } from "solid-js";
+import { render } from "solid-js/web";
+import { browser } from "wxt/browser";
 
-import '../styles/content.css';
+import "../styles/content.css";
 import {
   GET_PULL_REQUEST_STATUS,
   type PullRequestLocator,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
-} from '../lib/ghff';
+} from "../lib/ghff";
 
-const ROOT_ID = 'ghff-status-root';
+const ROOT_ID = "ghff-status-root";
 const PAGE_CACHE_TTL_MS = 30_000;
 const URL_CHECK_INTERVAL_MS = 750;
 const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
 
-type StatusTone = 'loading' | 'success' | 'muted' | 'error' | 'neutral';
+type StatusTone = "loading" | "success" | "muted" | "error" | "neutral";
 
 type StatusView = {
   tone: StatusTone;
@@ -42,7 +42,7 @@ type PageCacheEntry = {
 // enough state to debounce refreshes and ignore stale async responses.
 const pageState = {
   cache: new Map<string, PageCacheEntry>(),
-  currentPath: '',
+  currentPath: "",
   pendingKey: null as string | null,
   requestId: 0,
   scheduled: false,
@@ -70,18 +70,18 @@ const StatusCard: Component<{ view: StatusView }> = (props) => {
 };
 
 export default defineContentScript({
-  matches: ['https://github.com/*/*/pull/*'],
-  runAt: 'document_idle',
+  matches: ["https://github.com/*/*/pull/*"],
+  runAt: "document_idle",
   main() {
     pageState.currentPath = location.pathname;
 
-    const root = document.createElement('div');
+    const root = document.createElement("div");
     root.id = ROOT_ID;
 
     const [view, setView] = createSignal<StatusView>({
-      tone: 'loading',
-      status: 'loading',
-      title: 'Checking fast-forward status',
+      tone: "loading",
+      status: "loading",
+      title: "Checking fast-forward status",
     });
 
     render(() => <StatusCard view={view()} />, root);
@@ -93,22 +93,16 @@ export default defineContentScript({
   },
 });
 
-function init({
-  root,
-  setView,
-}: {
-  root: HTMLDivElement;
-  setView: (view: StatusView) => void;
-}) {
+function init({ root, setView }: { root: HTMLDivElement; setView: (view: StatusView) => void }) {
   // Re-run the PR check after both full page loads and GitHub's partial
   // navigations so the card follows in-app route changes.
   scheduleRefresh(root, setView);
 
-  window.addEventListener('load', () => scheduleRefresh(root, setView));
-  window.addEventListener('popstate', () => scheduleRefresh(root, setView));
-  document.addEventListener('pjax:end', () => scheduleRefresh(root, setView), true);
-  document.addEventListener('turbo:load', () => scheduleRefresh(root, setView), true);
-  document.addEventListener('turbo:render', () => scheduleRefresh(root, setView), true);
+  window.addEventListener("load", () => scheduleRefresh(root, setView));
+  window.addEventListener("popstate", () => scheduleRefresh(root, setView));
+  document.addEventListener("pjax:end", () => scheduleRefresh(root, setView), true);
+  document.addEventListener("turbo:load", () => scheduleRefresh(root, setView), true);
+  document.addEventListener("turbo:render", () => scheduleRefresh(root, setView), true);
 
   setInterval(() => {
     if (location.pathname === pageState.currentPath) {
@@ -159,9 +153,9 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
   }
 
   setView({
-    tone: 'loading',
-    status: 'loading',
-    title: 'Checking fast-forward status',
+    tone: "loading",
+    status: "loading",
+    title: "Checking fast-forward status",
   });
 
   if (pageState.pendingKey === prMatch.signature) {
@@ -190,9 +184,9 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
     }
 
     setView({
-      tone: 'error',
-      status: 'error',
-      title: 'Fast-forward status unavailable',
+      tone: "error",
+      status: "error",
+      title: "Fast-forward status unavailable",
       detail: error instanceof Error ? error.message : String(error),
     });
   } finally {
@@ -220,15 +214,15 @@ function findMountTarget() {
   // Prefer the discussion sidebar now that the card lives there, but keep a
   // header fallback so the extension still renders if GitHub shifts the layout.
   return (
-    document.querySelector<HTMLElement>('#partial-discussion-sidebar') ??
-    document.querySelector<HTMLElement>('#pr-conversation-sidebar') ??
-    document.querySelector<HTMLElement>('main h1')?.closest<HTMLElement>('header') ??
+    document.querySelector<HTMLElement>("#partial-discussion-sidebar") ??
+    document.querySelector<HTMLElement>("#pr-conversation-sidebar") ??
+    document.querySelector<HTMLElement>("main h1")?.closest<HTMLElement>("header") ??
     null
   );
 }
 
 function ensureMounted(root: HTMLDivElement, mountTarget: HTMLElement) {
-  const shouldAppend = mountTarget.id === 'pr-conversation-sidebar';
+  const shouldAppend = mountTarget.id === "pr-conversation-sidebar";
 
   if (shouldAppend) {
     // The sidebar wrapper is the outer fallback container, so append the card
@@ -239,8 +233,11 @@ function ensureMounted(root: HTMLDivElement, mountTarget: HTMLElement) {
     return;
   }
 
-  if (root.previousElementSibling !== mountTarget || root.parentElement !== mountTarget.parentElement) {
-    mountTarget.insertAdjacentElement('afterend', root);
+  if (
+    root.previousElementSibling !== mountTarget ||
+    root.parentElement !== mountTarget.parentElement
+  ) {
+    mountTarget.insertAdjacentElement("afterend", root);
   }
 }
 
@@ -252,54 +249,52 @@ function buildViewModel(result: PullRequestStatusResult): StatusView {
   // Keep the sidebar copy compact: headline first, ahead count only when it
   // adds actionable information for a mergeable pull request.
   switch (result.status) {
-    case 'ff-possible':
+    case "ff-possible":
       return {
-        tone: 'success',
+        tone: "success",
         status: result.status,
-        title: 'Fast-forward merge possible',
-        meta: `${result.aheadBy} commit${result.aheadBy === 1 ? '' : 's'} ahead`,
+        title: "Fast-forward merge possible",
+        meta: `${result.aheadBy} commit${result.aheadBy === 1 ? "" : "s"} ahead`,
         action: {
-          label: 'Fast-forward merge',
+          label: "Fast-forward merge",
         },
       };
-    case 'up-to-date':
+    case "up-to-date":
       return {
-        tone: 'neutral',
+        tone: "neutral",
         status: result.status,
-        title: 'Already up to date',
+        title: "Already up to date",
       };
-    case 'cross-repository':
+    case "cross-repository":
       return {
-        tone: 'muted',
+        tone: "muted",
         status: result.status,
-        title: 'Fast-forward merge not supported',
+        title: "Fast-forward merge not supported",
       };
-    case 'base-ahead':
-    case 'diverged':
+    case "base-ahead":
+    case "diverged":
       return {
-        tone: 'muted',
+        tone: "muted",
         status: result.status,
-        title: 'Fast-forward merge not possible',
+        title: "Fast-forward merge not possible",
       };
-    case 'closed':
+    case "closed":
       return {
-        tone: 'neutral',
+        tone: "neutral",
         status: result.status,
-        title: 'Pull request is not open',
+        title: "Pull request is not open",
       };
     default:
       return {
-        tone: 'error',
+        tone: "error",
         status: result.status,
-        title: 'Fast-forward status unavailable',
-        detail: 'GitHub did not return a comparison state this extension understands.',
+        title: "Fast-forward status unavailable",
+        detail: "GitHub did not return a comparison state this extension understands.",
       };
   }
 }
 
-function requestPullRequestStatus(
-  request: PullRequestLocator,
-): Promise<PullRequestStatusResult> {
+function requestPullRequestStatus(request: PullRequestLocator): Promise<PullRequestStatusResult> {
   // Ask the background worker to call the GitHub API so the content script
   // stays focused on DOM work.
   return browser.runtime
@@ -311,7 +306,7 @@ function requestPullRequestStatus(
       const typedResponse = response as PullRequestStatusResponse | undefined;
 
       if (!typedResponse?.ok) {
-        throw new Error(typedResponse?.error.message ?? 'The extension could not fetch PR status.');
+        throw new Error(typedResponse?.error.message ?? "The extension could not fetch PR status.");
       }
 
       return typedResponse.result;

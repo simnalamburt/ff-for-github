@@ -15,25 +15,20 @@ const PAGE_CACHE_TTL_MS = 30_000;
 const URL_CHECK_INTERVAL_MS = 750;
 const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
 
-type StatusCardState =
-  | { kind: "loading" }
-  | { kind: "error"; message: string }
-  | { kind: "loaded"; result: PullRequestStatusResult };
-
-type PageCacheEntry = {
-  cachedAt: number;
-  result: PullRequestStatusResult;
-};
-
 // GitHub swaps PR pages with Turbo/PJAX, so the content script has to keep
 // enough state to debounce refreshes and ignore stale async responses.
 const pageState = {
-  cache: new Map<string, PageCacheEntry>(),
+  cache: new Map<string, { cachedAt: number; result: PullRequestStatusResult }>(),
   currentPath: "",
   pendingKey: null as string | null,
   requestId: 0,
   scheduled: false,
 };
+
+type StatusCardState =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "loaded"; result: PullRequestStatusResult };
 
 const StatusCard: Component<{ state: StatusCardState }> = (props) => {
   type StatusCardPresentation = {
@@ -117,45 +112,39 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
   );
 };
 
-function main() {
-  pageState.currentPath = location.pathname;
-
-  const root = document.createElement("div");
-  root.id = ROOT_ID;
-
-  const [state, setState] = createSignal<StatusCardState>({ kind: "loading" });
-
-  render(() => <StatusCard state={state()} />, root);
-
-  // Re-run the PR check after both full page loads and GitHub's partial
-  // navigations so the card follows in-app route changes.
-  refresh(root, setState);
-
-  window.addEventListener("load", () => refresh(root, setState));
-  window.addEventListener("popstate", () => refresh(root, setState));
-  document.addEventListener("pjax:end", () => refresh(root, setState), true);
-  document.addEventListener("turbo:load", () => refresh(root, setState), true);
-  document.addEventListener("turbo:render", () => refresh(root, setState), true);
-
-  setInterval(() => {
-    if (location.pathname === pageState.currentPath) {
-      return;
-    }
-
-    pageState.currentPath = location.pathname;
-    refresh(root, setState);
-  }, URL_CHECK_INTERVAL_MS);
-}
-
 export default defineContentScript({
   matches: ["https://github.com/*/*/pull/*"],
   runAt: "document_idle",
-  main,
-});
+  main() {
+    pageState.currentPath = location.pathname;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+    const root = document.createElement("div");
+    root.id = ROOT_ID;
+
+    const [state, setState] = createSignal<StatusCardState>({ kind: "loading" });
+
+    render(() => <StatusCard state={state()} />, root);
+
+    // Re-run the PR check after both full page loads and GitHub's partial
+    // navigations so the card follows in-app route changes.
+    refresh(root, setState);
+
+    window.addEventListener("load", () => refresh(root, setState));
+    window.addEventListener("popstate", () => refresh(root, setState));
+    document.addEventListener("pjax:end", () => refresh(root, setState), true);
+    document.addEventListener("turbo:load", () => refresh(root, setState), true);
+    document.addEventListener("turbo:render", () => refresh(root, setState), true);
+
+    setInterval(() => {
+      if (location.pathname === pageState.currentPath) {
+        return;
+      }
+
+      pageState.currentPath = location.pathname;
+      refresh(root, setState);
+    }, URL_CHECK_INTERVAL_MS);
+  },
+});
 
 async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) => void) {
   // Ignore refresh() call if refresh() has been called within
@@ -256,4 +245,8 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
       pageState.pendingKey = null;
     }
   }
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

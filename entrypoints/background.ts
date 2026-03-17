@@ -109,27 +109,14 @@ async function getPullRequestStatus({
 
   const baseRepository = pullRequest.base?.repo?.full_name as string | undefined;
   const headRepository = pullRequest.head?.repo?.full_name as string | undefined;
-  const result = {
-    owner,
-    repo,
-    pullNumber,
-    baseRef: pullRequest.base?.ref ?? "",
-    headRef: pullRequest.head?.ref ?? "",
-    baseSha: pullRequest.base?.sha ?? "",
-    headSha: pullRequest.head?.sha ?? "",
-    baseRepository,
-    headRepository,
-    state: pullRequest.state ?? "open",
-    aheadBy: 0,
-    behindBy: 0,
-    status: "unknown" as PullRequestComparisonStatus,
-    canFastForward: false,
-  };
+  const baseSha = pullRequest.base?.sha ?? "";
+  const headSha = pullRequest.head?.sha ?? "";
+  const state = pullRequest.state ?? "open";
 
-  if (result.state !== "open") {
+  if (state !== "open") {
     return {
-      ...result,
       status: "closed",
+      aheadBy: 0,
     };
   }
 
@@ -137,22 +124,18 @@ async function getPullRequestStatus({
   // only surface status for same-repository pull requests.
   if (!baseRepository || !headRepository || baseRepository !== headRepository) {
     return {
-      ...result,
       status: "cross-repository",
+      aheadBy: 0,
     };
   }
 
   const comparison = await githubRequest<GitHubCompareResponse>(
-    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(result.baseSha)}...${encodeURIComponent(result.headSha)}`,
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseSha)}...${encodeURIComponent(headSha)}`,
   );
 
   return {
-    ...result,
-    comparisonStatus: comparison.status ?? "unknown",
     aheadBy: comparison.ahead_by ?? 0,
-    behindBy: comparison.behind_by ?? 0,
     status: getFastForwardStatus(comparison.status),
-    canFastForward: comparison.status === "ahead",
   };
 }
 

@@ -19,19 +19,9 @@ export type PullRequestStatusRequest = PullRequestLocator & {
   type: typeof GET_PULL_REQUEST_STATUS;
 };
 
-export type PullRequestStatusResult = PullRequestLocator & {
-  baseRef: string;
-  headRef: string;
-  baseSha: string;
-  headSha: string;
-  baseRepository?: string;
-  headRepository?: string;
-  state: string;
-  comparisonStatus?: string;
+export type PullRequestStatusResult = {
   aheadBy: number;
-  behindBy: number;
   status: PullRequestComparisonStatus;
-  canFastForward: boolean;
 };
 
 export type PullRequestStatusResponse =

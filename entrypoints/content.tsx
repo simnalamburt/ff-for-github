@@ -93,7 +93,7 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   // Parse URL
   const match = location.pathname.match(PR_PATH_PATTERN);
   if (!match) {
-    removeRoot(root);
+    root.remove();
     return;
   }
   const prMatch: PullRequestLocator = {
@@ -106,7 +106,7 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   // Find mount target in the PR sidebar
   const mountTarget = document.querySelector<HTMLElement>("#partial-discussion-sidebar");
   if (!mountTarget) {
-    removeRoot(root);
+    root.remove();
     return;
   }
   // Ensure the root is mounted properly
@@ -165,10 +165,6 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
       pageState.pendingKey = null;
     }
   }
-}
-
-function removeRoot(root: HTMLDivElement) {
-  root.remove();
 }
 
 async function requestPullRequestStatus(

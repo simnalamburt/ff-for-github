@@ -21,7 +21,6 @@ type RuntimeWithMessageCallback = {
 };
 
 type GitHubBranchReference = {
-  ref?: string;
   sha?: string;
   repo?: {
     full_name?: string;
@@ -37,7 +36,6 @@ type GitHubPullRequestResponse = {
 type GitHubCompareResponse = {
   status?: string;
   ahead_by?: number;
-  behind_by?: number;
 };
 
 type GitHubErrorResponse = {

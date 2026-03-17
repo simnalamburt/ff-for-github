@@ -5,13 +5,14 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
+    "ci": "tsc --noEmit && oxlint",
+    "fix": "oxlint --fix",
     "dev": "wxt",
     "dev:firefox": "wxt -b firefox",
     "build": "wxt build",
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
-    "compile": "tsc --noEmit",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
@@ -19,6 +20,7 @@
   },
   "devDependencies": {
     "@wxt-dev/module-solid": "^1.1.4",
+    "oxlint": "^1.56.0",
     "typescript": "^5.9.3",
     "wxt": "^0.20.19"
   },

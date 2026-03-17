@@ -84,14 +84,12 @@ export default defineContentScript({
       title: 'Checking fast-forward status',
     });
 
-    const dispose = render(() => <StatusCard view={view()} />, root);
+    render(() => <StatusCard view={view()} />, root);
 
     init({
       root,
       setView,
     });
-
-    window.addEventListener('unload', dispose, { once: true });
   },
 });
 

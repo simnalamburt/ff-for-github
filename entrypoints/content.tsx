@@ -110,19 +110,22 @@ function sleep(ms: number): Promise<void> {
 }
 
 async function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
+  // Ignore scheduleRefresh() call if scheduleRefresh() has been called within
+  // 100 milliseconds.
+  //
   // GitHub can fire several navigation-related events for one transition.
-  // Collapse them into a single refresh tick.
+  // Following logic collapses them into a single refresh tick.
   if (pageState.scheduled) {
     return;
   }
-
   pageState.scheduled = true;
   await sleep(100);
   pageState.scheduled = false;
-  await refresh(root, setView);
-}
 
-async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
+  //
+  // Actual refresh logic starts here.
+  //
+
   // Parse URL
   const match = location.pathname.match(PR_PATH_PATTERN);
   if (!match) {

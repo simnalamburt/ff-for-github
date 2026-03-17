@@ -178,7 +178,7 @@ function buildViewModel(result) {
       };
     case "cross-repository":
       return {
-        tone: "warning",
+        tone: "muted",
         status: result.status,
         title: "Fast-forward merge not supported",
         detail: "This PR comes from a different repository. The current extension only checks same-repository pull requests.",
@@ -186,7 +186,7 @@ function buildViewModel(result) {
       };
     case "base-ahead":
       return {
-        tone: "warning",
+        tone: "muted",
         status: result.status,
         title: "Fast-forward merge not possible",
         detail: `${labelBranch(result.baseRef)} is already ahead of ${labelBranch(result.headRef)}.`,
@@ -194,7 +194,7 @@ function buildViewModel(result) {
       };
     case "diverged":
       return {
-        tone: "warning",
+        tone: "muted",
         status: result.status,
         title: "Fast-forward merge not possible",
         detail: `${labelBranch(result.baseRef)} and ${labelBranch(result.headRef)} have diverged.`,

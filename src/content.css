@@ -21,9 +21,9 @@
   background: var(--bgColor-success-muted, #dafbe1);
 }
 
-.ghff-status--warning {
-  border-left-color: var(--borderColor-attention-emphasis, #9a6700);
-  background: var(--bgColor-attention-muted, #fff8c5);
+.ghff-status--muted {
+  border-left-color: var(--borderColor-muted, #656d76);
+  background: var(--bgColor-muted, #f6f8fa);
 }
 
 .ghff-status--error {

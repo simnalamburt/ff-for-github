@@ -256,21 +256,20 @@ function buildViewModel(result: PullRequestStatusResult): StatusView {
   }
 }
 
-function requestPullRequestStatus(request: PullRequestLocator): Promise<PullRequestStatusResult> {
+async function requestPullRequestStatus(
+  request: PullRequestLocator,
+): Promise<PullRequestStatusResult> {
   // Ask the background worker to call the GitHub API so the content script
   // stays focused on DOM work.
-  return browser.runtime
-    .sendMessage({
-      type: GET_PULL_REQUEST_STATUS,
-      ...request,
-    } satisfies PullRequestStatusRequest)
-    .then((response) => {
-      const typedResponse = response as PullRequestStatusResponse | undefined;
+  const response = await browser.runtime.sendMessage({
+    type: GET_PULL_REQUEST_STATUS,
+    ...request,
+  } satisfies PullRequestStatusRequest);
+  const typedResponse = response as PullRequestStatusResponse | undefined;
 
-      if (!typedResponse?.ok) {
-        throw new Error(typedResponse?.error.message ?? "The extension could not fetch PR status.");
-      }
+  if (!typedResponse?.ok) {
+    throw new Error(typedResponse?.error.message ?? "The extension could not fetch PR status.");
+  }
 
-      return typedResponse.result;
-    });
+  return typedResponse.result;
 }

@@ -20,6 +20,30 @@ type RuntimeWithMessageCallback = {
   };
 };
 
+type GitHubBranchReference = {
+  ref?: string;
+  sha?: string;
+  repo?: {
+    full_name?: string;
+  };
+};
+
+type GitHubPullRequestResponse = {
+  base?: GitHubBranchReference;
+  head?: GitHubBranchReference;
+  state?: string;
+};
+
+type GitHubCompareResponse = {
+  status?: string;
+  ahead_by?: number;
+  behind_by?: number;
+};
+
+type GitHubErrorResponse = {
+  message?: string;
+};
+
 export default defineBackground(() => {
   // The background worker is the single place that talks to the GitHub API.
   // Content scripts ask for a PR status snapshot and get back a small view model.
@@ -37,15 +61,7 @@ export default defineBackground(() => {
       return undefined;
     }
 
-    void getPullRequestStatus(message)
-      .then<PullRequestStatusResponse>((result) => ({ ok: true, result }))
-      .catch<PullRequestStatusResponse>((error) => ({
-        ok: false,
-        error: { message: error instanceof Error ? error.message : String(error) },
-      }))
-      .then((response) => {
-        sendResponse(response);
-      });
+    void sendPullRequestStatusResponse(message, sendResponse);
 
     // Chrome extension messaging keeps the channel open only when the listener
     // returns true and replies through sendResponse asynchronously.
@@ -65,6 +81,21 @@ function isPullRequestStatusRequest(message: unknown): message is PullRequestSta
   );
 }
 
+async function sendPullRequestStatusResponse(
+  request: PullRequestStatusRequest,
+  sendResponse: (response: PullRequestStatusResponse) => void,
+) {
+  try {
+    const result = await getPullRequestStatus(request);
+    sendResponse({ ok: true, result });
+  } catch (error) {
+    sendResponse({
+      ok: false,
+      error: { message: error instanceof Error ? error.message : String(error) },
+    });
+  }
+}
+
 async function getPullRequestStatus({
   owner,
   repo,
@@ -72,7 +103,7 @@ async function getPullRequestStatus({
 }: PullRequestStatusRequest): Promise<PullRequestStatusResult> {
   // Pull request metadata gives us the current base/head refs and SHAs that
   // GitHub is comparing on the page.
-  const pullRequest = await githubRequest(
+  const pullRequest = await githubRequest<GitHubPullRequestResponse>(
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(String(pullNumber))}`,
   );
 
@@ -111,7 +142,7 @@ async function getPullRequestStatus({
     };
   }
 
-  const comparison = await githubRequest(
+  const comparison = await githubRequest<GitHubCompareResponse>(
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(result.baseSha)}...${encodeURIComponent(result.headSha)}`,
   );
 
@@ -142,7 +173,7 @@ function getFastForwardStatus(comparisonStatus: string | undefined): PullRequest
   }
 }
 
-async function githubRequest(pathname: string) {
+async function githubRequest<T>(pathname: string): Promise<T> {
   // Centralize GitHub API headers and error normalization so every request
   // fails the same way in the content script.
   const response = await fetch(`https://api.github.com${pathname}`, {
@@ -151,15 +182,24 @@ async function githubRequest(pathname: string) {
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });
-  const data = await response.json().catch(() => null);
+  let data: unknown = null;
+  try {
+    data = await response.json();
+  } catch {
+    data = null;
+  }
 
   if (!response.ok) {
     const message =
-      data && typeof data.message === "string"
+      isGitHubErrorResponse(data) && typeof data.message === "string"
         ? data.message
         : `GitHub API request failed with status ${response.status}.`;
     throw new Error(message);
   }
 
-  return data;
+  return data as T;
+}
+
+function isGitHubErrorResponse(data: unknown): data is GitHubErrorResponse {
+  return typeof data === "object" && data !== null && "message" in data;
 }

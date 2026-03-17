@@ -81,13 +81,13 @@ function main() {
 
   // Re-run the PR check after both full page loads and GitHub's partial
   // navigations so the card follows in-app route changes.
-  scheduleRefresh(root, setView);
+  refresh(root, setView);
 
-  window.addEventListener("load", () => scheduleRefresh(root, setView));
-  window.addEventListener("popstate", () => scheduleRefresh(root, setView));
-  document.addEventListener("pjax:end", () => scheduleRefresh(root, setView), true);
-  document.addEventListener("turbo:load", () => scheduleRefresh(root, setView), true);
-  document.addEventListener("turbo:render", () => scheduleRefresh(root, setView), true);
+  window.addEventListener("load", () => refresh(root, setView));
+  window.addEventListener("popstate", () => refresh(root, setView));
+  document.addEventListener("pjax:end", () => refresh(root, setView), true);
+  document.addEventListener("turbo:load", () => refresh(root, setView), true);
+  document.addEventListener("turbo:render", () => refresh(root, setView), true);
 
   setInterval(() => {
     if (location.pathname === pageState.currentPath) {
@@ -95,7 +95,7 @@ function main() {
     }
 
     pageState.currentPath = location.pathname;
-    scheduleRefresh(root, setView);
+    refresh(root, setView);
   }, URL_CHECK_INTERVAL_MS);
 }
 
@@ -109,8 +109,8 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
-  // Ignore scheduleRefresh() call if scheduleRefresh() has been called within
+async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
+  // Ignore refresh() call if refresh() has been called within
   // 100 milliseconds.
   //
   // GitHub can fire several navigation-related events for one transition.
@@ -149,7 +149,7 @@ async function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView)
     document.querySelector<HTMLElement>("main h1")?.closest<HTMLElement>("header") ??
     null;
   if (!mountTarget) {
-    window.setTimeout(() => scheduleRefresh(root, setView), 250);
+    window.setTimeout(() => refresh(root, setView), 250);
     return;
   }
 

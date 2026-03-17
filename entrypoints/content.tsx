@@ -65,31 +65,20 @@ const StatusCard: Component<{ view: StatusView }> = (props) => {
   );
 };
 
-export default defineContentScript({
-  matches: ["https://github.com/*/*/pull/*"],
-  runAt: "document_idle",
-  main() {
-    pageState.currentPath = location.pathname;
+function main() {
+  pageState.currentPath = location.pathname;
 
-    const root = document.createElement("div");
-    root.id = ROOT_ID;
+  const root = document.createElement("div");
+  root.id = ROOT_ID;
 
-    const [view, setView] = createSignal<StatusView>({
-      tone: "loading",
-      status: "loading",
-      title: "Checking fast-forward status",
-    });
+  const [view, setView] = createSignal<StatusView>({
+    tone: "loading",
+    status: "loading",
+    title: "Checking fast-forward status",
+  });
 
-    render(() => <StatusCard view={view()} />, root);
+  render(() => <StatusCard view={view()} />, root);
 
-    init({
-      root,
-      setView,
-    });
-  },
-});
-
-function init({ root, setView }: { root: HTMLDivElement; setView: (view: StatusView) => void }) {
   // Re-run the PR check after both full page loads and GitHub's partial
   // navigations so the card follows in-app route changes.
   scheduleRefresh(root, setView);
@@ -109,6 +98,12 @@ function init({ root, setView }: { root: HTMLDivElement; setView: (view: StatusV
     scheduleRefresh(root, setView);
   }, URL_CHECK_INTERVAL_MS);
 }
+
+export default defineContentScript({
+  matches: ["https://github.com/*/*/pull/*"],
+  runAt: "document_idle",
+  main,
+});
 
 function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
   // GitHub can fire several navigation-related events for one transition.

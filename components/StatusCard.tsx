@@ -2,30 +2,19 @@ import { Show, createMemo, type Component } from "solid-js";
 
 import type { PullRequestStatusResult } from "../lib/ghff";
 
-type StatusTone = "loading" | "success" | "muted" | "error" | "neutral";
-
 export type StatusCardState =
-  | {
-      kind: "loading";
-    }
-  | {
-      kind: "error";
-      message: string;
-    }
-  | {
-      kind: "loaded";
-      result: PullRequestStatusResult;
-    };
-
-type StatusCardPresentation = {
-  tone: StatusTone;
-  title: string;
-  detail?: string;
-  meta?: string;
-  actionLabel?: string;
-};
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "loaded"; result: PullRequestStatusResult };
 
 export const StatusCard: Component<{ state: StatusCardState }> = (props) => {
+  type StatusCardPresentation = {
+    tone: "loading" | "success" | "muted" | "error" | "neutral";
+    title: string;
+    detail?: string;
+    meta?: string;
+    actionLabel?: string;
+  };
   const presentation = createMemo<StatusCardPresentation>(() => {
     if (props.state.kind === "loading") {
       return {

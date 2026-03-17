@@ -2,7 +2,6 @@ import { browser } from "wxt/browser";
 
 import {
   GET_PULL_REQUEST_STATUS,
-  type PullRequestComparisonStatus,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
@@ -133,25 +132,20 @@ async function getPullRequestStatus({
 
   return {
     aheadBy: comparison.ahead_by ?? 0,
-    status: getFastForwardStatus(comparison.status),
-  };
-}
 
-function getFastForwardStatus(comparisonStatus: string | undefined): PullRequestComparisonStatus {
-  // GitHub's compare API already tells us the ancestry relationship, so map it
-  // directly to the UI states used by the content script.
-  switch (comparisonStatus) {
-    case "ahead":
-      return "ff-possible";
-    case "identical":
-      return "up-to-date";
-    case "behind":
-      return "base-ahead";
-    case "diverged":
-      return "diverged";
-    default:
-      return "unknown";
-  }
+    // GitHub's compare API already tells us the ancestry relationship, so map it
+    // directly to the UI states used by the content script.
+    status:
+      comparison.status == "ahead"
+        ? "ff-possible"
+        : comparison.status == "identical"
+          ? "up-to-date"
+          : comparison.status == "behind"
+            ? "base-ahead"
+            : comparison.status == "diverged"
+              ? "diverged"
+              : "unknown",
+  };
 }
 
 async function githubRequest<T>(pathname: string): Promise<T> {

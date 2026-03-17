@@ -1,0 +1,30 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "jsPlugins": ["eslint-plugin-solid"],
+  // NOTE: Replace the rules below with an "extends" directive once
+  // https://github.com/oxc-project/oxc/issues/15538 is resolved
+  "rules": {
+    //
+    // eslint-plugin-solid
+    //
+    "solid/components-return-once": "error",
+    "solid/event-handlers": "error",
+    "solid/imports": "error",
+    "solid/jsx-no-duplicate-props": "error",
+    "solid/jsx-no-script-url": "error",
+    "solid/jsx-no-undef": "error",
+    // NOTE: https://github.com/oxc-project/oxc/issues/17130
+    "solid/jsx-uses-vars": "off",
+    "solid/no-destructure": "error",
+    "solid/no-innerhtml": "error",
+    "solid/no-react-deps": "error",
+    "solid/no-react-specific-props": "error",
+    "solid/no-unknown-namespaces": "error",
+    "solid/prefer-for": "error",
+    "solid/reactivity": "error",
+    "solid/self-closing-comp": "error",
+    "solid/style-prop": "error",
+    "solid/prefer-classlist": "warn",
+    "solid/prefer-show": "warn"
+  }
+}

@@ -8,20 +8,48 @@ import {
   type PullRequestStatusResult,
 } from '../lib/ghff';
 
+type RuntimeWithMessageCallback = {
+  onMessage: {
+    addListener(
+      callback: (
+        message: unknown,
+        sender: unknown,
+        sendResponse: (response: PullRequestStatusResponse) => void,
+      ) => boolean | void,
+    ): void;
+  };
+};
+
 export default defineBackground(() => {
   // The background worker is the single place that talks to the GitHub API.
   // Content scripts ask for a PR status snapshot and get back a small view model.
-  browser.runtime.onMessage.addListener((message: unknown) => {
+  const chromeRuntime = (
+    globalThis as typeof globalThis & {
+      chrome?: {
+        runtime?: RuntimeWithMessageCallback;
+      };
+    }
+  ).chrome?.runtime;
+  const runtime = (chromeRuntime ?? browser.runtime) as RuntimeWithMessageCallback;
+
+  runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
     if (!isPullRequestStatusRequest(message)) {
       return undefined;
     }
 
-    return getPullRequestStatus(message)
+    void getPullRequestStatus(message)
       .then<PullRequestStatusResponse>((result) => ({ ok: true, result }))
       .catch<PullRequestStatusResponse>((error) => ({
         ok: false,
         error: { message: error instanceof Error ? error.message : String(error) },
-      }));
+      }))
+      .then((response) => {
+        sendResponse(response);
+      });
+
+    // Chrome extension messaging keeps the channel open only when the listener
+    // returns true and replies through sendResponse asynchronously.
+    return true;
   });
 });
 

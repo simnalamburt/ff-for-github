@@ -164,6 +164,9 @@ function buildViewModel(result) {
         title: "Fast-forward merge possible",
         detail: `${labelBranch(result.baseRef)} can move to ${labelBranch(result.headRef)} without creating a merge commit.`,
         meta: `${meta} · ${result.aheadBy} commit${result.aheadBy === 1 ? "" : "s"} ahead`,
+        action: {
+          label: "Fast-forward merge",
+        },
       };
     case "up-to-date":
       return {
@@ -236,7 +239,22 @@ function renderCard(card, view) {
   meta.className = "ghff-status__meta";
   meta.textContent = view.meta;
 
-  card.replaceChildren(eyebrow, title, detail, meta);
+  const children = [eyebrow, title, detail, meta];
+
+  if (view.action) {
+    const actions = document.createElement("div");
+    actions.className = "ghff-status__actions";
+
+    const button = document.createElement("button");
+    button.className = "ghff-status__button";
+    button.type = "button";
+    button.textContent = view.action.label;
+
+    actions.append(button);
+    children.push(actions);
+  }
+
+  card.replaceChildren(...children);
 }
 
 function formatBranchMeta(repositoryName, baseRef, headRef) {

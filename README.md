@@ -6,12 +6,13 @@ Current scope:
 
 - Detect whether a pull request can be fast-forward merged.
 - Render that status directly on the PR page header.
+- Render a fast-forward merge button when the PR is eligible.
 
 Current limitations:
 
 - The check only supports same-repository pull requests.
 - The extension uses unauthenticated GitHub API requests, so it currently works best for public repositories.
-- The merge button is not implemented yet.
+- The merge button is only visual for now and does not trigger a merge yet.
 
 ## Load locally
 

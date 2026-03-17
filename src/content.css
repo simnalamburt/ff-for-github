@@ -63,3 +63,24 @@
   margin-top: 8px;
   opacity: 0.78;
 }
+
+.ghff-status__actions {
+  margin-top: 12px;
+}
+
+.ghff-status__button {
+  appearance: none;
+  border: 1px solid var(--button-default-borderColor-rest, rgba(31, 35, 40, 0.15));
+  border-radius: 6px;
+  background: var(--button-primary-bgColor-rest, #1f883d);
+  color: var(--button-primary-fgColor-rest, #ffffff);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+  padding: 6px 14px;
+}
+
+.ghff-status__button:hover {
+  background: var(--button-primary-bgColor-hover, #1a7f37);
+}

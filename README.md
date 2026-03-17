@@ -1,4 +1,4 @@
-# GitHub FF Merge
+# Fast-forward merge for GitHub
 
 Manifest V3 browser extension for GitHub pull request pages.
 

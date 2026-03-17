@@ -125,14 +125,28 @@ function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => vo
 }
 
 async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
-  const prMatch = parsePullRequestPath(location.pathname);
-  if (!prMatch) {
+  // Parse URL
+  const match = location.pathname.match(PR_PATH_PATTERN);
+  if (!match) {
     removeRoot(root);
     return;
   }
+  const prMatch: PullRequestLocator = {
+    owner: match[1],
+    repo: match[2],
+    pullNumber: Number(match[3]),
+  };
   const signature = `${prMatch.owner}/${prMatch.repo}#${prMatch.pullNumber}`;
 
-  const mountTarget = findMountTarget();
+  // Find mount target
+  //
+  // Prefer the discussion sidebar as a mount target, but fallback to the header
+  // if GitHub shifts the layout.
+  const mountTarget =
+    document.querySelector<HTMLElement>("#partial-discussion-sidebar") ??
+    document.querySelector<HTMLElement>("#pr-conversation-sidebar") ??
+    document.querySelector<HTMLElement>("main h1")?.closest<HTMLElement>("header") ??
+    null;
   if (!mountTarget) {
     window.setTimeout(() => scheduleRefresh(root, setView), 250);
     return;
@@ -191,30 +205,6 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
       pageState.pendingKey = null;
     }
   }
-}
-
-function parsePullRequestPath(pathname: string): PullRequestLocator | null {
-  const match = pathname.match(PR_PATH_PATTERN);
-  if (!match) {
-    return null;
-  }
-
-  return {
-    owner: match[1],
-    repo: match[2],
-    pullNumber: Number(match[3]),
-  };
-}
-
-function findMountTarget() {
-  // Prefer the discussion sidebar now that the card lives there, but keep a
-  // header fallback so the extension still renders if GitHub shifts the layout.
-  return (
-    document.querySelector<HTMLElement>("#partial-discussion-sidebar") ??
-    document.querySelector<HTMLElement>("#pr-conversation-sidebar") ??
-    document.querySelector<HTMLElement>("main h1")?.closest<HTMLElement>("header") ??
-    null
-  );
 }
 
 function ensureMounted(root: HTMLDivElement, mountTarget: HTMLElement) {

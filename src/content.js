@@ -70,8 +70,6 @@ async function refresh() {
     tone: "loading",
     status: "loading",
     title: "Checking fast-forward status",
-    detail: "Comparing the PR base and head commits on GitHub.",
-    meta: formatBranchMeta(`${prMatch.owner}/${prMatch.repo}`, "", ""),
   });
 
   if (pageState.pendingKey === signature) {
@@ -99,7 +97,6 @@ async function refresh() {
       status: "error",
       title: "Fast-forward status unavailable",
       detail: error instanceof Error ? error.message : String(error),
-      meta: formatBranchMeta(`${prMatch.owner}/${prMatch.repo}`, "", ""),
     });
   } finally {
     if (pageState.pendingKey === signature) {
@@ -164,20 +161,13 @@ function renderResult(card, result) {
 }
 
 function buildViewModel(result) {
-  const meta = formatBranchMeta(
-    result.baseRepository ?? `${result.owner}/${result.repo}`,
-    result.baseRef,
-    result.headRef,
-  );
-
   switch (result.status) {
     case "ff-possible":
       return {
         tone: "success",
         status: result.status,
         title: "Fast-forward merge possible",
-        detail: `${labelBranch(result.baseRef)} can move to ${labelBranch(result.headRef)} without creating a merge commit.`,
-        meta: `${meta} · ${result.aheadBy} commit${result.aheadBy === 1 ? "" : "s"} ahead`,
+        meta: `${result.aheadBy} commit${result.aheadBy === 1 ? "" : "s"} ahead`,
         action: {
           label: "Fast-forward merge",
         },
@@ -187,40 +177,30 @@ function buildViewModel(result) {
         tone: "neutral",
         status: result.status,
         title: "Already up to date",
-        detail: `${labelBranch(result.baseRef)} already points at the PR head commit.`,
-        meta,
       };
     case "cross-repository":
       return {
         tone: "muted",
         status: result.status,
         title: "Fast-forward merge not supported",
-        detail: "This PR comes from a different repository. The current extension only checks same-repository pull requests.",
-        meta: `${result.baseRepository} <- ${result.headRepository}`,
       };
     case "base-ahead":
       return {
         tone: "muted",
         status: result.status,
         title: "Fast-forward merge not possible",
-        detail: `${labelBranch(result.baseRef)} is already ahead of ${labelBranch(result.headRef)}.`,
-        meta,
       };
     case "diverged":
       return {
         tone: "muted",
         status: result.status,
         title: "Fast-forward merge not possible",
-        detail: `${labelBranch(result.baseRef)} and ${labelBranch(result.headRef)} have diverged.`,
-        meta,
       };
     case "closed":
       return {
         tone: "neutral",
         status: result.status,
         title: "Pull request is not open",
-        detail: "This check only applies to open pull requests.",
-        meta,
       };
     default:
       return {
@@ -237,23 +217,25 @@ function renderCard(card, view) {
   card.dataset.status = view.status;
   card.className = `ghff-status ghff-status--${view.tone}`;
 
-  const eyebrow = document.createElement("div");
-  eyebrow.className = "ghff-status__eyebrow";
-  eyebrow.textContent = "Fast-forward merge";
-
   const title = document.createElement("div");
   title.className = "ghff-status__title";
   title.textContent = view.title;
 
-  const detail = document.createElement("div");
-  detail.className = "ghff-status__detail";
-  detail.textContent = view.detail;
+  const children = [title];
 
-  const meta = document.createElement("div");
-  meta.className = "ghff-status__meta";
-  meta.textContent = view.meta;
+  if (view.detail) {
+    const detail = document.createElement("div");
+    detail.className = "ghff-status__detail";
+    detail.textContent = view.detail;
+    children.push(detail);
+  }
 
-  const children = [eyebrow, title, detail, meta];
+  if (view.meta) {
+    const meta = document.createElement("div");
+    meta.className = "ghff-status__meta";
+    meta.textContent = view.meta;
+    children.push(meta);
+  }
 
   if (view.action) {
     const actions = document.createElement("div");
@@ -269,16 +251,6 @@ function renderCard(card, view) {
   }
 
   card.replaceChildren(...children);
-}
-
-function formatBranchMeta(repositoryName, baseRef, headRef) {
-  const branchPair =
-    baseRef && headRef ? `${labelBranch(baseRef)} <- ${labelBranch(headRef)}` : "Preparing branch comparison";
-  return `${repositoryName} · ${branchPair}`;
-}
-
-function labelBranch(branchName) {
-  return branchName ? `"${branchName}"` : "the branch";
 }
 
 function requestPullRequestStatus({ owner, repo, pullNumber }) {

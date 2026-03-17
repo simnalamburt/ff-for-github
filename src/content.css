@@ -39,15 +39,6 @@
   background: var(--bgColor-accent-muted, #ddf4ff);
 }
 
-.ghff-status__eyebrow {
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin-bottom: 4px;
-  opacity: 0.8;
-  text-transform: uppercase;
-}
-
 .ghff-status__title {
   font-size: 16px;
   font-weight: 600;

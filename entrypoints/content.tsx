@@ -1,0 +1,321 @@
+import { Show, createSignal, type Component } from 'solid-js';
+import { render } from 'solid-js/web';
+import { browser } from 'wxt/browser';
+
+import '../styles/content.css';
+import {
+  GET_PULL_REQUEST_STATUS,
+  type PullRequestLocator,
+  type PullRequestStatusRequest,
+  type PullRequestStatusResponse,
+  type PullRequestStatusResult,
+} from '../lib/ghff';
+
+const ROOT_ID = 'ghff-status-root';
+const PAGE_CACHE_TTL_MS = 30_000;
+const URL_CHECK_INTERVAL_MS = 750;
+const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
+
+type StatusTone = 'loading' | 'success' | 'muted' | 'error' | 'neutral';
+
+type StatusView = {
+  tone: StatusTone;
+  status: string;
+  title: string;
+  detail?: string;
+  meta?: string;
+  action?: {
+    label: string;
+  };
+};
+
+type PullRequestMatch = PullRequestLocator & {
+  signature: string;
+};
+
+type PageCacheEntry = {
+  cachedAt: number;
+  result: PullRequestStatusResult;
+};
+
+// GitHub swaps PR pages with Turbo/PJAX, so the content script has to keep
+// enough state to debounce refreshes and ignore stale async responses.
+const pageState = {
+  cache: new Map<string, PageCacheEntry>(),
+  currentPath: '',
+  pendingKey: null as string | null,
+  requestId: 0,
+  scheduled: false,
+};
+
+const StatusCard: Component<{ view: StatusView }> = (props) => {
+  return (
+    <section class={`ghff-status ghff-status--${props.view.tone}`} data-status={props.view.status}>
+      <div class="ghff-status__title">{props.view.title}</div>
+      <Show when={props.view.detail}>
+        <div class="ghff-status__detail">{props.view.detail}</div>
+      </Show>
+      <Show when={props.view.meta}>
+        <div class="ghff-status__meta">{props.view.meta}</div>
+      </Show>
+      <Show when={props.view.action}>
+        <div class="ghff-status__actions">
+          <button class="ghff-status__button" type="button">
+            {props.view.action?.label}
+          </button>
+        </div>
+      </Show>
+    </section>
+  );
+};
+
+export default defineContentScript({
+  matches: ['https://github.com/*/*/pull/*'],
+  runAt: 'document_idle',
+  main() {
+    pageState.currentPath = location.pathname;
+
+    const root = document.createElement('div');
+    root.id = ROOT_ID;
+
+    const [view, setView] = createSignal<StatusView>({
+      tone: 'loading',
+      status: 'loading',
+      title: 'Checking fast-forward status',
+    });
+
+    const dispose = render(() => <StatusCard view={view()} />, root);
+
+    init({
+      root,
+      setView,
+    });
+
+    window.addEventListener('unload', dispose, { once: true });
+  },
+});
+
+function init({
+  root,
+  setView,
+}: {
+  root: HTMLDivElement;
+  setView: (view: StatusView) => void;
+}) {
+  // Re-run the PR check after both full page loads and GitHub's partial
+  // navigations so the card follows in-app route changes.
+  scheduleRefresh(root, setView);
+
+  window.addEventListener('load', () => scheduleRefresh(root, setView));
+  window.addEventListener('popstate', () => scheduleRefresh(root, setView));
+  document.addEventListener('pjax:end', () => scheduleRefresh(root, setView), true);
+  document.addEventListener('turbo:load', () => scheduleRefresh(root, setView), true);
+  document.addEventListener('turbo:render', () => scheduleRefresh(root, setView), true);
+
+  setInterval(() => {
+    if (location.pathname === pageState.currentPath) {
+      return;
+    }
+
+    pageState.currentPath = location.pathname;
+    scheduleRefresh(root, setView);
+  }, URL_CHECK_INTERVAL_MS);
+}
+
+function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
+  // GitHub can fire several navigation-related events for one transition.
+  // Collapse them into a single refresh tick.
+  if (pageState.scheduled) {
+    return;
+  }
+
+  pageState.scheduled = true;
+  window.setTimeout(() => {
+    pageState.scheduled = false;
+    void refresh(root, setView);
+  }, 100);
+}
+
+async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
+  const prMatch = parsePullRequestPath(location.pathname);
+  if (!prMatch) {
+    removeRoot(root);
+    return;
+  }
+
+  const mountTarget = findMountTarget();
+  if (!mountTarget) {
+    window.setTimeout(() => scheduleRefresh(root, setView), 250);
+    return;
+  }
+
+  ensureMounted(root, mountTarget);
+
+  const cached = pageState.cache.get(prMatch.signature);
+
+  // Reuse recent API results while the user flips between tabs inside the
+  // same pull request page.
+  if (cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
+    setView(buildViewModel(cached.result));
+    return;
+  }
+
+  setView({
+    tone: 'loading',
+    status: 'loading',
+    title: 'Checking fast-forward status',
+  });
+
+  if (pageState.pendingKey === prMatch.signature) {
+    return;
+  }
+
+  pageState.pendingKey = prMatch.signature;
+  const requestId = ++pageState.requestId;
+
+  try {
+    const result = await requestPullRequestStatus(prMatch);
+    // Drop late responses from older requests when the user navigates quickly
+    // between pull requests.
+    if (requestId !== pageState.requestId) {
+      return;
+    }
+
+    pageState.cache.set(prMatch.signature, {
+      result,
+      cachedAt: Date.now(),
+    });
+    setView(buildViewModel(result));
+  } catch (error) {
+    if (requestId !== pageState.requestId) {
+      return;
+    }
+
+    setView({
+      tone: 'error',
+      status: 'error',
+      title: 'Fast-forward status unavailable',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  } finally {
+    if (pageState.pendingKey === prMatch.signature) {
+      pageState.pendingKey = null;
+    }
+  }
+}
+
+function parsePullRequestPath(pathname: string): PullRequestMatch | null {
+  const match = pathname.match(PR_PATH_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    owner: match[1],
+    repo: match[2],
+    pullNumber: Number(match[3]),
+    signature: `${match[1]}/${match[2]}#${match[3]}`,
+  };
+}
+
+function findMountTarget() {
+  // Prefer the discussion sidebar now that the card lives there, but keep a
+  // header fallback so the extension still renders if GitHub shifts the layout.
+  return (
+    document.querySelector<HTMLElement>('#partial-discussion-sidebar') ??
+    document.querySelector<HTMLElement>('#pr-conversation-sidebar') ??
+    document.querySelector<HTMLElement>('main h1')?.closest<HTMLElement>('header') ??
+    null
+  );
+}
+
+function ensureMounted(root: HTMLDivElement, mountTarget: HTMLElement) {
+  const shouldAppend = mountTarget.id === 'pr-conversation-sidebar';
+
+  if (shouldAppend) {
+    // The sidebar wrapper is the outer fallback container, so append the card
+    // as its last child instead of inserting it between GitHub-owned siblings.
+    if (root.parentElement !== mountTarget || mountTarget.lastElementChild !== root) {
+      mountTarget.append(root);
+    }
+    return;
+  }
+
+  if (root.previousElementSibling !== mountTarget || root.parentElement !== mountTarget.parentElement) {
+    mountTarget.insertAdjacentElement('afterend', root);
+  }
+}
+
+function removeRoot(root: HTMLDivElement) {
+  root.remove();
+}
+
+function buildViewModel(result: PullRequestStatusResult): StatusView {
+  // Keep the sidebar copy compact: headline first, ahead count only when it
+  // adds actionable information for a mergeable pull request.
+  switch (result.status) {
+    case 'ff-possible':
+      return {
+        tone: 'success',
+        status: result.status,
+        title: 'Fast-forward merge possible',
+        meta: `${result.aheadBy} commit${result.aheadBy === 1 ? '' : 's'} ahead`,
+        action: {
+          label: 'Fast-forward merge',
+        },
+      };
+    case 'up-to-date':
+      return {
+        tone: 'neutral',
+        status: result.status,
+        title: 'Already up to date',
+      };
+    case 'cross-repository':
+      return {
+        tone: 'muted',
+        status: result.status,
+        title: 'Fast-forward merge not supported',
+      };
+    case 'base-ahead':
+    case 'diverged':
+      return {
+        tone: 'muted',
+        status: result.status,
+        title: 'Fast-forward merge not possible',
+      };
+    case 'closed':
+      return {
+        tone: 'neutral',
+        status: result.status,
+        title: 'Pull request is not open',
+      };
+    default:
+      return {
+        tone: 'error',
+        status: result.status,
+        title: 'Fast-forward status unavailable',
+        detail: 'GitHub did not return a comparison state this extension understands.',
+      };
+  }
+}
+
+function requestPullRequestStatus(
+  request: PullRequestLocator,
+): Promise<PullRequestStatusResult> {
+  // Ask the background worker to call the GitHub API so the content script
+  // stays focused on DOM work.
+  return browser.runtime
+    .sendMessage({
+      type: GET_PULL_REQUEST_STATUS,
+      ...request,
+    } satisfies PullRequestStatusRequest)
+    .then((response) => {
+      const typedResponse = response as PullRequestStatusResponse | undefined;
+
+      if (!typedResponse?.ok) {
+        throw new Error(typedResponse?.error.message ?? 'The extension could not fetch PR status.');
+      }
+
+      return typedResponse.result;
+    });
+}

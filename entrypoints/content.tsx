@@ -7,7 +7,6 @@ import { StatusCard, type StatusCardState } from "../components/StatusCard";
 import "../styles/content.css";
 import {
   GET_PULL_REQUEST_STATUS,
-  type PullRequestLocator,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
@@ -96,12 +95,8 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
     root.remove();
     return;
   }
-  const prMatch: PullRequestLocator = {
-    owner: match[1],
-    repo: match[2],
-    pullNumber: Number(match[3]),
-  };
-  const signature = `${prMatch.owner}/${prMatch.repo}#${prMatch.pullNumber}`;
+  const [, owner, repo, pullNumber] = match;
+  const signature = `${owner}/${repo}#${pullNumber}`;
 
   // Find mount target in the PR sidebar
   const mountTarget = document.querySelector<HTMLElement>("#partial-discussion-sidebar");
@@ -136,7 +131,7 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   const requestId = ++pageState.requestId;
 
   try {
-    const result = await requestPullRequestStatus(prMatch);
+    const result = await requestPullRequestStatus(owner, repo, Number(pullNumber));
     // Drop late responses from older requests when the user navigates quickly
     // between pull requests.
     if (requestId !== pageState.requestId) {
@@ -168,13 +163,17 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
 }
 
 async function requestPullRequestStatus(
-  request: PullRequestLocator,
+  owner: string,
+  repo: string,
+  pullNumber: number,
 ): Promise<PullRequestStatusResult> {
   // Ask the background worker to call the GitHub API so the content script
   // stays focused on DOM work.
   const response = await browser.runtime.sendMessage({
     type: GET_PULL_REQUEST_STATUS,
-    ...request,
+    owner,
+    repo,
+    pullNumber,
   } satisfies PullRequestStatusRequest);
   const typedResponse = response as PullRequestStatusResponse | undefined;
 

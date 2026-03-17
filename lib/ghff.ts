@@ -1,11 +1,5 @@
 export const GET_PULL_REQUEST_STATUS = "ghff:get-pull-request-status";
 
-export type PullRequestLocator = {
-  owner: string;
-  repo: string;
-  pullNumber: number;
-};
-
 export type PullRequestComparisonStatus =
   | "ff-possible"
   | "up-to-date"
@@ -15,8 +9,11 @@ export type PullRequestComparisonStatus =
   | "closed"
   | "unknown";
 
-export type PullRequestStatusRequest = PullRequestLocator & {
+export type PullRequestStatusRequest = {
   type: typeof GET_PULL_REQUEST_STATUS;
+  owner: string;
+  repo: string;
+  pullNumber: number;
 };
 
 export type PullRequestStatusResult = {

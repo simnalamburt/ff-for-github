@@ -29,10 +29,6 @@ type StatusView = {
   };
 };
 
-type PullRequestMatch = PullRequestLocator & {
-  signature: string;
-};
-
 type PageCacheEntry = {
   cachedAt: number;
   result: PullRequestStatusResult;
@@ -134,6 +130,7 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
     removeRoot(root);
     return;
   }
+  const signature = `${prMatch.owner}/${prMatch.repo}#${prMatch.pullNumber}`;
 
   const mountTarget = findMountTarget();
   if (!mountTarget) {
@@ -143,7 +140,7 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
 
   ensureMounted(root, mountTarget);
 
-  const cached = pageState.cache.get(prMatch.signature);
+  const cached = pageState.cache.get(signature);
 
   // Reuse recent API results while the user flips between tabs inside the
   // same pull request page.
@@ -158,11 +155,11 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
     title: "Checking fast-forward status",
   });
 
-  if (pageState.pendingKey === prMatch.signature) {
+  if (pageState.pendingKey === signature) {
     return;
   }
 
-  pageState.pendingKey = prMatch.signature;
+  pageState.pendingKey = signature;
   const requestId = ++pageState.requestId;
 
   try {
@@ -173,7 +170,7 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
       return;
     }
 
-    pageState.cache.set(prMatch.signature, {
+    pageState.cache.set(signature, {
       result,
       cachedAt: Date.now(),
     });
@@ -190,13 +187,13 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
       detail: error instanceof Error ? error.message : String(error),
     });
   } finally {
-    if (pageState.pendingKey === prMatch.signature) {
+    if (pageState.pendingKey === signature) {
       pageState.pendingKey = null;
     }
   }
 }
 
-function parsePullRequestPath(pathname: string): PullRequestMatch | null {
+function parsePullRequestPath(pathname: string): PullRequestLocator | null {
   const match = pathname.match(PR_PATH_PATTERN);
   if (!match) {
     return null;
@@ -206,7 +203,6 @@ function parsePullRequestPath(pathname: string): PullRequestMatch | null {
     owner: match[1],
     repo: match[2],
     pullNumber: Number(match[3]),
-    signature: `${match[1]}/${match[2]}#${match[3]}`,
   };
 }
 

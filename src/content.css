@@ -1,5 +1,8 @@
 #ghff-status-root {
+  box-sizing: border-box;
+  display: block;
   margin: 16px 0 0;
+  width: 100%;
 }
 
 .ghff-status {

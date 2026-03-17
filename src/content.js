@@ -122,7 +122,12 @@ function parsePullRequestPath(pathname) {
 }
 
 function findMountTarget() {
-  return document.querySelector("main h1")?.closest("header") ?? null;
+  return (
+    document.querySelector("#partial-discussion-sidebar") ??
+    document.querySelector("#pr-conversation-sidebar") ??
+    document.querySelector("main h1")?.closest("header") ??
+    null
+  );
 }
 
 function ensureCard(mountTarget) {
@@ -133,7 +138,16 @@ function ensureCard(mountTarget) {
     card.className = "ghff-status";
   }
 
-  if (card.previousElementSibling !== mountTarget) {
+  const shouldAppend = mountTarget.id === "pr-conversation-sidebar";
+
+  if (shouldAppend) {
+    if (card.parentElement !== mountTarget || mountTarget.lastElementChild !== card) {
+      mountTarget.append(card);
+    }
+    return card;
+  }
+
+  if (card.previousElementSibling !== mountTarget || card.parentElement !== mountTarget.parentElement) {
     mountTarget.insertAdjacentElement("afterend", card);
   }
 

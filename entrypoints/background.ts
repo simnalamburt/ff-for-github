@@ -37,10 +37,6 @@ type GitHubCompareResponse = {
   ahead_by?: number;
 };
 
-type GitHubErrorResponse = {
-  message?: string;
-};
-
 export default defineBackground(() => {
   // The background worker is the single place that talks to the GitHub API.
   // Content scripts ask for a PR status snapshot and get back a small view model.
@@ -166,15 +162,14 @@ async function githubRequest<T>(pathname: string): Promise<T> {
 
   if (!response.ok) {
     const message =
-      isGitHubErrorResponse(data) && typeof data.message === "string"
+      typeof data === "object" &&
+      data !== null &&
+      "message" in data &&
+      typeof data.message === "string"
         ? data.message
         : `GitHub API request failed with status ${response.status}.`;
     throw new Error(message);
   }
 
   return data as T;
-}
-
-function isGitHubErrorResponse(data: unknown): data is GitHubErrorResponse {
-  return typeof data === "object" && data !== null && "message" in data;
 }

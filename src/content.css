@@ -1,8 +1,8 @@
-#gh-ff-merge-status-root {
+#ghff-status-root {
   margin: 16px 0 0;
 }
 
-.gh-ff-merge-status {
+.ghff-status {
   border: 1px solid var(--borderColor-default, #d0d7de);
   border-left-width: 4px;
   border-radius: 10px;
@@ -11,32 +11,32 @@
   padding: 14px 16px;
 }
 
-.gh-ff-merge-status--loading {
+.ghff-status--loading {
   border-left-color: var(--borderColor-attention-emphasis, #9a6700);
   background: var(--bgColor-attention-muted, #fff8c5);
 }
 
-.gh-ff-merge-status--success {
+.ghff-status--success {
   border-left-color: var(--borderColor-success-emphasis, #1a7f37);
   background: var(--bgColor-success-muted, #dafbe1);
 }
 
-.gh-ff-merge-status--warning {
+.ghff-status--warning {
   border-left-color: var(--borderColor-attention-emphasis, #9a6700);
   background: var(--bgColor-attention-muted, #fff8c5);
 }
 
-.gh-ff-merge-status--error {
+.ghff-status--error {
   border-left-color: var(--borderColor-danger-emphasis, #cf222e);
   background: var(--bgColor-danger-muted, #ffebe9);
 }
 
-.gh-ff-merge-status--neutral {
+.ghff-status--neutral {
   border-left-color: var(--borderColor-accent-emphasis, #0969da);
   background: var(--bgColor-accent-muted, #ddf4ff);
 }
 
-.gh-ff-merge-status__eyebrow {
+.ghff-status__eyebrow {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -45,19 +45,19 @@
   text-transform: uppercase;
 }
 
-.gh-ff-merge-status__title {
+.ghff-status__title {
   font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
 }
 
-.gh-ff-merge-status__detail {
+.ghff-status__detail {
   font-size: 14px;
   line-height: 1.5;
   margin-top: 4px;
 }
 
-.gh-ff-merge-status__meta {
+.ghff-status__meta {
   font-size: 12px;
   line-height: 1.5;
   margin-top: 8px;

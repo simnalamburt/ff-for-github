@@ -1,4 +1,4 @@
-const ROOT_ID = "gh-ff-merge-status-root";
+const ROOT_ID = "ghff-status-root";
 const PAGE_CACHE_TTL_MS = 30_000;
 const URL_CHECK_INTERVAL_MS = 750;
 const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
@@ -130,7 +130,7 @@ function ensureCard(mountTarget) {
   if (!card) {
     card = document.createElement("section");
     card.id = ROOT_ID;
-    card.className = "gh-ff-merge-status";
+    card.className = "ghff-status";
   }
 
   if (card.previousElementSibling !== mountTarget) {
@@ -218,22 +218,22 @@ function buildViewModel(result) {
 
 function renderCard(card, view) {
   card.dataset.status = view.status;
-  card.className = `gh-ff-merge-status gh-ff-merge-status--${view.tone}`;
+  card.className = `ghff-status ghff-status--${view.tone}`;
 
   const eyebrow = document.createElement("div");
-  eyebrow.className = "gh-ff-merge-status__eyebrow";
+  eyebrow.className = "ghff-status__eyebrow";
   eyebrow.textContent = "Fast-forward merge";
 
   const title = document.createElement("div");
-  title.className = "gh-ff-merge-status__title";
+  title.className = "ghff-status__title";
   title.textContent = view.title;
 
   const detail = document.createElement("div");
-  detail.className = "gh-ff-merge-status__detail";
+  detail.className = "ghff-status__detail";
   detail.textContent = view.detail;
 
   const meta = document.createElement("div");
-  meta.className = "gh-ff-merge-status__meta";
+  meta.className = "ghff-status__meta";
   meta.textContent = view.meta;
 
   card.replaceChildren(eyebrow, title, detail, meta);
@@ -253,7 +253,7 @@ function requestPullRequestStatus({ owner, repo, pullNumber }) {
   return new Promise((resolve, reject) => {
     chrome.runtime.sendMessage(
       {
-        type: "ff-merge:get-pull-request-status",
+        type: "ghff:get-pull-request-status",
         owner,
         repo,
         pullNumber,

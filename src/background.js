@@ -5,7 +5,7 @@ const GITHUB_API_HEADERS = {
 };
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (message?.type !== "ff-merge:get-pull-request-status") {
+  if (message?.type !== "ghff:get-pull-request-status") {
     return false;
   }
 

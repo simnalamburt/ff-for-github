@@ -131,7 +131,18 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   const requestId = ++pageState.requestId;
 
   try {
-    const result = await requestPullRequestStatus(owner, repo, Number(pullNumber));
+    // Ask the background worker to call the GitHub API so the content script
+    // stays focused on DOM work.
+    const response = (await browser.runtime.sendMessage({
+      type: GET_PULL_REQUEST_STATUS,
+      owner,
+      repo,
+      pullNumber: Number(pullNumber),
+    } satisfies PullRequestStatusRequest)) as PullRequestStatusResponse | undefined;
+    if (!response?.ok) {
+      throw new Error(response?.error.message ?? "The extension could not fetch PR status.");
+    }
+
     // Drop late responses from older requests when the user navigates quickly
     // between pull requests.
     if (requestId !== pageState.requestId) {
@@ -139,12 +150,12 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
     }
 
     pageState.cache.set(signature, {
-      result,
+      result: response.result,
       cachedAt: Date.now(),
     });
     setState({
       kind: "loaded",
-      result,
+      result: response.result,
     });
   } catch (error) {
     if (requestId !== pageState.requestId) {
@@ -160,26 +171,4 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
       pageState.pendingKey = null;
     }
   }
-}
-
-async function requestPullRequestStatus(
-  owner: string,
-  repo: string,
-  pullNumber: number,
-): Promise<PullRequestStatusResult> {
-  // Ask the background worker to call the GitHub API so the content script
-  // stays focused on DOM work.
-  const response = await browser.runtime.sendMessage({
-    type: GET_PULL_REQUEST_STATUS,
-    owner,
-    repo,
-    pullNumber,
-  } satisfies PullRequestStatusRequest);
-  const typedResponse = response as PullRequestStatusResponse | undefined;
-
-  if (!typedResponse?.ok) {
-    throw new Error(typedResponse?.error.message ?? "The extension could not fetch PR status.");
-  }
-
-  return typedResponse.result;
 }

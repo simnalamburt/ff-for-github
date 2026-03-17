@@ -1,3 +1,5 @@
+// The background worker is the single place that talks to the GitHub API.
+// Content scripts ask for a PR status snapshot and get back a small view model.
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "ghff:get-pull-request-status") {
     return false;
@@ -16,6 +18,8 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 async function getPullRequestStatus({ owner, repo, pullNumber }) {
+  // Pull request metadata gives us the current base/head refs and SHAs that
+  // GitHub is comparing on the page.
   const pullRequest = await githubRequest(
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(String(pullNumber))}`,
   );
@@ -43,6 +47,8 @@ async function getPullRequestStatus({ owner, repo, pullNumber }) {
     };
   }
 
+  // The eventual merge action will update the base ref in place, so for now we
+  // only surface status for same-repository pull requests.
   if (!baseRepository || !headRepository || baseRepository !== headRepository) {
     return {
       ...result,
@@ -66,6 +72,8 @@ async function getPullRequestStatus({ owner, repo, pullNumber }) {
 }
 
 function getFastForwardStatus(comparisonStatus) {
+  // GitHub's compare API already tells us the ancestry relationship, so map it
+  // directly to the UI states used by the content script.
   switch (comparisonStatus) {
     case "ahead":
       return "ff-possible";
@@ -81,6 +89,8 @@ function getFastForwardStatus(comparisonStatus) {
 }
 
 async function githubRequest(pathname) {
+  // Centralize GitHub API headers and error normalization so every request
+  // fails the same way in the content script.
   const response = await fetch(`https://api.github.com${pathname}`, {
     headers: {
       Accept: "application/vnd.github+json",

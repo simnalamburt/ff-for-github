@@ -3,6 +3,8 @@ const PAGE_CACHE_TTL_MS = 30_000;
 const URL_CHECK_INTERVAL_MS = 750;
 const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
 
+// GitHub swaps PR pages with Turbo/PJAX, so the content script has to keep
+// enough state to debounce refreshes and ignore stale async responses.
 const pageState = {
   cache: new Map(),
   currentPath: location.pathname,
@@ -14,6 +16,8 @@ const pageState = {
 init();
 
 function init() {
+  // Re-run the PR check after both full page loads and GitHub's partial
+  // navigations so the card follows in-app route changes.
   scheduleRefresh();
 
   window.addEventListener("load", scheduleRefresh);
@@ -33,6 +37,8 @@ function init() {
 }
 
 function scheduleRefresh() {
+  // GitHub can fire several navigation-related events for one transition.
+  // Collapse them into a single refresh tick.
   if (pageState.scheduled) {
     return;
   }
@@ -61,6 +67,8 @@ async function refresh() {
   const card = ensureCard(mountTarget);
   const cached = pageState.cache.get(signature);
 
+  // Reuse recent API results while the user flips between tabs inside the
+  // same pull request page.
   if (cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
     renderResult(card, cached.result);
     return;
@@ -81,6 +89,8 @@ async function refresh() {
 
   try {
     const result = await requestPullRequestStatus(prMatch);
+    // Drop late responses from older requests when the user navigates quickly
+    // between pull requests.
     if (requestId !== pageState.requestId) {
       return;
     }
@@ -119,6 +129,8 @@ function parsePullRequestPath(pathname) {
 }
 
 function findMountTarget() {
+  // Prefer the discussion sidebar now that the card lives there, but keep a
+  // header fallback so the extension still renders if GitHub shifts the layout.
   return (
     document.querySelector("#partial-discussion-sidebar") ??
     document.querySelector("#pr-conversation-sidebar") ??
@@ -138,6 +150,8 @@ function ensureCard(mountTarget) {
   const shouldAppend = mountTarget.id === "pr-conversation-sidebar";
 
   if (shouldAppend) {
+    // The sidebar wrapper is the outer fallback container, so append the card
+    // as its last child instead of inserting it between GitHub-owned siblings.
     if (card.parentElement !== mountTarget || mountTarget.lastElementChild !== card) {
       mountTarget.append(card);
     }
@@ -161,6 +175,8 @@ function renderResult(card, result) {
 }
 
 function buildViewModel(result) {
+  // Keep the sidebar copy compact: headline first, ahead count only when it
+  // adds actionable information for a mergeable pull request.
   switch (result.status) {
     case "ff-possible":
       return {
@@ -240,6 +256,8 @@ function renderCard(card, view) {
     const actions = document.createElement("div");
     actions.className = "ghff-status__actions";
 
+    // The button is visual-only for now; the merge action will be wired up in
+    // a later step.
     const button = document.createElement("button");
     button.className = "ghff-status__button";
     button.type = "button";
@@ -254,6 +272,8 @@ function renderCard(card, view) {
 
 function requestPullRequestStatus({ owner, repo, pullNumber }) {
   return new Promise((resolve, reject) => {
+    // Ask the background worker to call the GitHub API so the content script
+    // stays focused on DOM work.
     chrome.runtime.sendMessage(
       {
         type: "ghff:get-pull-request-status",

@@ -1,3 +1,4 @@
+/* Sidebar placement: the card should fill the discussion sidebar width. */
 #ghff-status-root {
   box-sizing: border-box;
   display: block;
@@ -5,6 +6,7 @@
   width: 100%;
 }
 
+/* Base card shell shared by every status tone. */
 .ghff-status {
   border: 1px solid var(--borderColor-default, #d0d7de);
   border-left-width: 4px;
@@ -14,6 +16,7 @@
   padding: 14px 16px;
 }
 
+/* Tone variants mirror GitHub's success/attention/muted/danger palette. */
 .ghff-status--loading {
   border-left-color: var(--borderColor-attention-emphasis, #9a6700);
   background: var(--bgColor-attention-muted, #fff8c5);
@@ -39,6 +42,7 @@
   background: var(--bgColor-accent-muted, #ddf4ff);
 }
 
+/* Content spacing is intentionally tight because the card lives in the sidebar. */
 .ghff-status__title {
   font-size: 16px;
   font-weight: 600;
@@ -58,6 +62,7 @@
   opacity: 0.78;
 }
 
+/* The future merge action lives in its own row to match GitHub's button rhythm. */
 .ghff-status__actions {
   margin-top: 12px;
 }

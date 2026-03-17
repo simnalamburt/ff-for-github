@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "GitHub FF Merge",
+  "version": "0.1.0",
+  "description": "Shows whether a GitHub pull request can be fast-forward merged.",
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "host_permissions": [
+    "https://api.github.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://github.com/*/*/pull/*"
+      ],
+      "js": [
+        "src/content.js"
+      ],
+      "css": [
+        "src/content.css"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

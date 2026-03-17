@@ -105,7 +105,11 @@ export default defineContentScript({
   main,
 });
 
-function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
   // GitHub can fire several navigation-related events for one transition.
   // Collapse them into a single refresh tick.
   if (pageState.scheduled) {
@@ -113,10 +117,9 @@ function scheduleRefresh(root: HTMLDivElement, setView: (view: StatusView) => vo
   }
 
   pageState.scheduled = true;
-  window.setTimeout(() => {
-    pageState.scheduled = false;
-    void refresh(root, setView);
-  }, 100);
+  await sleep(100);
+  pageState.scheduled = false;
+  await refresh(root, setView);
 }
 
 async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void) {

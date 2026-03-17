@@ -149,8 +149,8 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
     document.querySelector<HTMLElement>("main h1")?.closest<HTMLElement>("header") ??
     null;
   if (!mountTarget) {
-    window.setTimeout(() => refresh(root, setView), 250);
-    return;
+    await sleep(250);
+    return refresh(root, setView);
   }
 
   ensureMounted(root, mountTarget);

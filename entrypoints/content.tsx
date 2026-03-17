@@ -1,4 +1,4 @@
-import { Show, createSignal, type Component } from "solid-js";
+import { Show, createMemo, createSignal, type Component } from "solid-js";
 import { render } from "solid-js/web";
 import { browser } from "wxt/browser";
 
@@ -18,15 +18,25 @@ const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
 
 type StatusTone = "loading" | "success" | "muted" | "error" | "neutral";
 
-type StatusView = {
+type StatusCardState =
+  | {
+      kind: "loading";
+    }
+  | {
+      kind: "error";
+      message: string;
+    }
+  | {
+      kind: "loaded";
+      result: PullRequestStatusResult;
+    };
+
+type StatusCardPresentation = {
   tone: StatusTone;
-  status: string;
   title: string;
   detail?: string;
   meta?: string;
-  action?: {
-    label: string;
-  };
+  actionLabel?: string;
 };
 
 type PageCacheEntry = {
@@ -44,20 +54,74 @@ const pageState = {
   scheduled: false,
 };
 
-const StatusCard: Component<{ view: StatusView }> = (props) => {
+const StatusCard: Component<{ state: StatusCardState }> = (props) => {
+  const presentation = createMemo<StatusCardPresentation>(() => {
+    if (props.state.kind === "loading") {
+      return {
+        tone: "loading",
+        title: "Checking fast-forward status",
+      };
+    }
+
+    if (props.state.kind === "error") {
+      return {
+        tone: "error",
+        title: "Fast-forward status unavailable",
+        detail: props.state.message,
+      };
+    }
+
+    switch (props.state.result.status) {
+      case "ff-possible":
+        return {
+          tone: "success",
+          title: "Fast-forward merge possible",
+          meta: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
+          actionLabel: "Fast-forward merge",
+        };
+      case "up-to-date":
+        return {
+          tone: "neutral",
+          title: "Already up to date",
+        };
+      case "cross-repository":
+        return {
+          tone: "muted",
+          title: "Fast-forward merge not supported",
+        };
+      case "base-ahead":
+      case "diverged":
+        return {
+          tone: "muted",
+          title: "Fast-forward merge not possible",
+        };
+      case "closed":
+        return {
+          tone: "neutral",
+          title: "Pull request is not open",
+        };
+      default:
+        return {
+          tone: "error",
+          title: "Fast-forward status unavailable",
+          detail: "GitHub did not return a comparison state this extension understands.",
+        };
+    }
+  });
+
   return (
-    <section class={`ghff-status ghff-status--${props.view.tone}`} data-status={props.view.status}>
-      <div class="ghff-status__title">{props.view.title}</div>
-      <Show when={props.view.detail}>
-        <div class="ghff-status__detail">{props.view.detail}</div>
+    <section class={`ghff-status ghff-status--${presentation().tone}`}>
+      <div class="ghff-status__title">{presentation().title}</div>
+      <Show when={presentation().detail}>
+        <div class="ghff-status__detail">{presentation().detail}</div>
       </Show>
-      <Show when={props.view.meta}>
-        <div class="ghff-status__meta">{props.view.meta}</div>
+      <Show when={presentation().meta}>
+        <div class="ghff-status__meta">{presentation().meta}</div>
       </Show>
-      <Show when={props.view.action}>
+      <Show when={presentation().actionLabel}>
         <div class="ghff-status__actions">
           <button class="ghff-status__button" type="button">
-            {props.view.action?.label}
+            {presentation().actionLabel}
           </button>
         </div>
       </Show>
@@ -71,23 +135,19 @@ function main() {
   const root = document.createElement("div");
   root.id = ROOT_ID;
 
-  const [view, setView] = createSignal<StatusView>({
-    tone: "loading",
-    status: "loading",
-    title: "Checking fast-forward status",
-  });
+  const [state, setState] = createSignal<StatusCardState>({ kind: "loading" });
 
-  render(() => <StatusCard view={view()} />, root);
+  render(() => <StatusCard state={state()} />, root);
 
   // Re-run the PR check after both full page loads and GitHub's partial
   // navigations so the card follows in-app route changes.
-  refresh(root, setView);
+  refresh(root, setState);
 
-  window.addEventListener("load", () => refresh(root, setView));
-  window.addEventListener("popstate", () => refresh(root, setView));
-  document.addEventListener("pjax:end", () => refresh(root, setView), true);
-  document.addEventListener("turbo:load", () => refresh(root, setView), true);
-  document.addEventListener("turbo:render", () => refresh(root, setView), true);
+  window.addEventListener("load", () => refresh(root, setState));
+  window.addEventListener("popstate", () => refresh(root, setState));
+  document.addEventListener("pjax:end", () => refresh(root, setState), true);
+  document.addEventListener("turbo:load", () => refresh(root, setState), true);
+  document.addEventListener("turbo:render", () => refresh(root, setState), true);
 
   setInterval(() => {
     if (location.pathname === pageState.currentPath) {
@@ -95,7 +155,7 @@ function main() {
     }
 
     pageState.currentPath = location.pathname;
-    refresh(root, setView);
+    refresh(root, setState);
   }, URL_CHECK_INTERVAL_MS);
 }
 
@@ -109,7 +169,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void) {
+async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) => void) {
   // Ignore refresh() call if refresh() has been called within
   // 100 milliseconds.
   //
@@ -155,15 +215,14 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
   // Reuse recent API results while the user flips between tabs inside the
   // same pull request page.
   if (cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
-    setView(buildViewModel(cached.result));
+    setState({
+      kind: "loaded",
+      result: cached.result,
+    });
     return;
   }
 
-  setView({
-    tone: "loading",
-    status: "loading",
-    title: "Checking fast-forward status",
-  });
+  setState({ kind: "loading" });
 
   if (pageState.pendingKey === signature) {
     return;
@@ -184,17 +243,18 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
       result,
       cachedAt: Date.now(),
     });
-    setView(buildViewModel(result));
+    setState({
+      kind: "loaded",
+      result,
+    });
   } catch (error) {
     if (requestId !== pageState.requestId) {
       return;
     }
 
-    setView({
-      tone: "error",
-      status: "error",
-      title: "Fast-forward status unavailable",
-      detail: error instanceof Error ? error.message : String(error),
+    setState({
+      kind: "error",
+      message: error instanceof Error ? error.message : String(error),
     });
   } finally {
     if (pageState.pendingKey === signature) {
@@ -205,55 +265,6 @@ async function refresh(root: HTMLDivElement, setView: (view: StatusView) => void
 
 function removeRoot(root: HTMLDivElement) {
   root.remove();
-}
-
-function buildViewModel(result: PullRequestStatusResult): StatusView {
-  // Keep the sidebar copy compact: headline first, ahead count only when it
-  // adds actionable information for a mergeable pull request.
-  switch (result.status) {
-    case "ff-possible":
-      return {
-        tone: "success",
-        status: result.status,
-        title: "Fast-forward merge possible",
-        meta: `${result.aheadBy} commit${result.aheadBy === 1 ? "" : "s"} ahead`,
-        action: {
-          label: "Fast-forward merge",
-        },
-      };
-    case "up-to-date":
-      return {
-        tone: "neutral",
-        status: result.status,
-        title: "Already up to date",
-      };
-    case "cross-repository":
-      return {
-        tone: "muted",
-        status: result.status,
-        title: "Fast-forward merge not supported",
-      };
-    case "base-ahead":
-    case "diverged":
-      return {
-        tone: "muted",
-        status: result.status,
-        title: "Fast-forward merge not possible",
-      };
-    case "closed":
-      return {
-        tone: "neutral",
-        status: result.status,
-        title: "Pull request is not open",
-      };
-    default:
-      return {
-        tone: "error",
-        status: result.status,
-        title: "Fast-forward status unavailable",
-        detail: "GitHub did not return a comparison state this extension understands.",
-      };
-  }
 }
 
 async function requestPullRequestStatus(

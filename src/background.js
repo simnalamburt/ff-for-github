@@ -1,9 +1,3 @@
-const GITHUB_API_ROOT = "https://api.github.com";
-const GITHUB_API_HEADERS = {
-  Accept: "application/vnd.github+json",
-  "X-GitHub-Api-Version": "2022-11-28",
-};
-
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== "ghff:get-pull-request-status") {
     return false;
@@ -87,8 +81,11 @@ function getFastForwardStatus(comparisonStatus) {
 }
 
 async function githubRequest(pathname) {
-  const response = await fetch(`${GITHUB_API_ROOT}${pathname}`, {
-    headers: GITHUB_API_HEADERS,
+  const response = await fetch(`https://api.github.com${pathname}`, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
   });
   const data = await response.json().catch(() => null);
 

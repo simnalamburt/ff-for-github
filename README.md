@@ -7,11 +7,11 @@ Current scope:
 - Detect whether a pull request can be fast-forward merged.
 - Render that status in the GitHub PR sidebar.
 - Render a fast-forward merge button when the PR is eligible.
+- Store a GitHub fine-grained personal access token in the extension options page.
 
 Current limitations:
 
 - The check only supports same-repository pull requests.
-- The extension uses unauthenticated GitHub API requests, so it currently works best for public repositories.
 - The merge button is only visual for now and does not trigger a merge yet.
 
 ## Develop locally
@@ -19,6 +19,7 @@ Current limitations:
 1. Install dependencies with `pnpm install`.
 2. Start the extension dev server with `pnpm dev`.
 3. Load the generated `.output/chrome-mv3` directory as an unpacked extension.
+4. Open the extension's Options page and save a GitHub fine-grained personal access token.
 
 ## How it works
 

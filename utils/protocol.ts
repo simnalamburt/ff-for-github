@@ -1,4 +1,5 @@
 export const GET_PULL_REQUEST_STATUS = "ghff:get-pull-request-status";
+export const GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY = "ghff:github-fine-grained-token";
 
 export type PullRequestStatusRequest = {
   type: typeof GET_PULL_REQUEST_STATUS;

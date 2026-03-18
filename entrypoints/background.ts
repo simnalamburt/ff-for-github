@@ -1,6 +1,7 @@
 import { browser } from "wxt/browser";
 
 import {
+  GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY,
   GET_PULL_REQUEST_STATUS,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
@@ -147,9 +148,11 @@ async function getPullRequestStatus({
 async function githubRequest<T>(pathname: string): Promise<T> {
   // Centralize GitHub API headers and error normalization so every request
   // fails the same way in the content script.
+  const token = await getGitHubFineGrainedToken();
   const response = await fetch(`https://api.github.com${pathname}`, {
     headers: {
       Accept: "application/vnd.github+json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       "X-GitHub-Api-Version": "2022-11-28",
     },
   });
@@ -172,4 +175,10 @@ async function githubRequest<T>(pathname: string): Promise<T> {
   }
 
   return data as T;
+}
+
+async function getGitHubFineGrainedToken(): Promise<string> {
+  const stored = await browser.storage.local.get(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
+  const token = stored[GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY];
+  return typeof token === "string" ? token : "";
 }

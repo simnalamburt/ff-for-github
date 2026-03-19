@@ -11,7 +11,7 @@ import {
   type PullRequestStatusResult,
 } from "../../utils/protocol";
 
-const ROOT_ID = "ghff-status-root";
+const ROOT_ID = "ghff-root";
 const PAGE_CACHE_TTL_MS = 30_000;
 const URL_CHECK_INTERVAL_MS = 750;
 const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
@@ -93,17 +93,15 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
   });
 
   return (
-    <section class="ghff-status" data-tone={presentation().tone}>
-      <div class="ghff-status__title">{presentation().title}</div>
+    <article data-tone={presentation().tone}>
+      <div class="ghff-title">{presentation().title}</div>
       <Show when={presentation().detail}>
-        <div class="ghff-status__detail">{presentation().detail}</div>
+        <div class="ghff-detail">{presentation().detail}</div>
       </Show>
       <Show when={presentation().actionLabel}>
-        <button class="ghff-status__button" type="button">
-          {presentation().actionLabel}
-        </button>
+        <button type="button">{presentation().actionLabel}</button>
       </Show>
-    </section>
+    </article>
   );
 };
 

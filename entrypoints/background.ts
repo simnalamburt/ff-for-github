@@ -41,6 +41,8 @@ type GitHubCompareResponse = {
 export default defineBackground(() => {
   // The background worker is the single place that talks to the GitHub API.
   // Content scripts ask for a PR status snapshot and get back a small view model.
+  void setStorageAccessLevelToTrustedContexts();
+
   const chromeRuntime = (
     globalThis as typeof globalThis & {
       chrome?: {
@@ -95,10 +97,14 @@ async function getPullRequestStatus({
   repo,
   pullNumber,
 }: PullRequestStatusRequest): Promise<PullRequestStatusResult> {
+  const token = await getGitHubFineGrainedToken();
+  const hasGitHubFineGrainedToken = token.trim() !== "";
+
   // Pull request metadata gives us the current base/head refs and SHAs that
   // GitHub is comparing on the page.
   const pullRequest = await githubRequest<GitHubPullRequestResponse>(
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(String(pullNumber))}`,
+    token,
   );
 
   const baseRepository = pullRequest.base?.repo?.full_name as string | undefined;
@@ -109,6 +115,7 @@ async function getPullRequestStatus({
 
   if (state !== "open") {
     return {
+      hasGitHubFineGrainedToken,
       status: "closed",
       aheadBy: 0,
     };
@@ -118,6 +125,7 @@ async function getPullRequestStatus({
   // only surface status for same-repository pull requests.
   if (!baseRepository || !headRepository || baseRepository !== headRepository) {
     return {
+      hasGitHubFineGrainedToken,
       status: "cross-repository",
       aheadBy: 0,
     };
@@ -125,10 +133,12 @@ async function getPullRequestStatus({
 
   const comparison = await githubRequest<GitHubCompareResponse>(
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseSha)}...${encodeURIComponent(headSha)}`,
+    token,
   );
 
   return {
     aheadBy: comparison.ahead_by ?? 0,
+    hasGitHubFineGrainedToken,
 
     // GitHub's compare API already tells us the ancestry relationship, so map it
     // directly to the UI states used by the content script.
@@ -145,10 +155,9 @@ async function getPullRequestStatus({
   };
 }
 
-async function githubRequest<T>(pathname: string): Promise<T> {
+async function githubRequest<T>(pathname: string, token: string): Promise<T> {
   // Centralize GitHub API headers and error normalization so every request
   // fails the same way in the content script.
-  const token = await getGitHubFineGrainedToken();
   const response = await fetch(`https://api.github.com${pathname}`, {
     headers: {
       Accept: "application/vnd.github+json",
@@ -181,4 +190,24 @@ async function getGitHubFineGrainedToken(): Promise<string> {
   const stored = await browser.storage.local.get(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
   const token = stored[GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY];
   return typeof token === "string" ? token : "";
+}
+
+async function setStorageAccessLevelToTrustedContexts() {
+  const storageArea = (
+    globalThis as typeof globalThis & {
+      chrome?: {
+        storage?: {
+          local?: {
+            setAccessLevel?(options: {
+              accessLevel: "TRUSTED_CONTEXTS" | "TRUSTED_AND_UNTRUSTED_CONTEXTS";
+            }): Promise<void> | void;
+          };
+        };
+      };
+    }
+  ).chrome?.storage?.local;
+
+  await storageArea?.setAccessLevel?.({
+    accessLevel: "TRUSTED_CONTEXTS",
+  });
 }

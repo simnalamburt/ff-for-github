@@ -10,6 +10,7 @@ export type PullRequestStatusRequest = {
 
 export type PullRequestStatusResult = {
   aheadBy: number;
+  hasGitHubFineGrainedToken: boolean;
   status:
     | "ff-possible"
     | "up-to-date"

@@ -4,7 +4,6 @@ import { browser } from "wxt/browser";
 
 import "./style.css";
 import {
-  GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY,
   GET_PULL_REQUEST_STATUS,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
@@ -29,7 +28,7 @@ const pageState = {
 type StatusCardState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "loaded"; hasGitHubFineGrainedToken: boolean; result: PullRequestStatusResult };
+  | { kind: "loaded"; result: PullRequestStatusResult };
 
 const StatusCard: Component<{ state: StatusCardState }> = (props) => {
   type StatusCardPresentation = {
@@ -60,7 +59,7 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
           tone: "success",
           title: "Fast-forward merge possible",
           detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.hasGitHubFineGrainedToken,
+          action: props.state.result.hasGitHubFineGrainedToken,
         };
       case "up-to-date":
         return {
@@ -181,10 +180,8 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   // Reuse recent API results while the user flips between tabs inside the
   // same pull request page.
   if (cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
-    const hasGitHubFineGrainedToken = await getHasGitHubFineGrainedToken();
     setState({
       kind: "loaded",
-      hasGitHubFineGrainedToken,
       result: cached.result,
     });
     return;
@@ -222,10 +219,8 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
       result: response.result,
       cachedAt: Date.now(),
     });
-    const hasGitHubFineGrainedToken = await getHasGitHubFineGrainedToken();
     setState({
       kind: "loaded",
-      hasGitHubFineGrainedToken,
       result: response.result,
     });
   } catch (error) {
@@ -246,10 +241,4 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function getHasGitHubFineGrainedToken(): Promise<boolean> {
-  const stored = await browser.storage.local.get(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
-  const token = stored[GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY];
-  return typeof token === "string" && token.trim() !== "";
 }

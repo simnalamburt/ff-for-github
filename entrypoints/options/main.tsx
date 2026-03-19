@@ -56,8 +56,8 @@ function OptionsPage() {
       <div class="ghff-options__card">
         <h1 class="ghff-options__title">Fast-forward merge for GitHub</h1>
         <p class="ghff-options__lead">
-          Save a GitHub fine-grained personal access token for authenticated API requests and future
-          fast-forward merge actions.
+          Save a GitHub fine-grained personal access token to enable authenticated API requests and
+          future fast-forward merge actions.
         </p>
 
         <form class="ghff-options__form" onSubmit={saveToken}>
@@ -74,10 +74,6 @@ function OptionsPage() {
             spellcheck={false}
             autocomplete="off"
           />
-          <p class="ghff-options__hint">
-            The token is stored in this browser profile with <code>storage.local</code>. The saved
-            value is not shown again after this page reloads.
-          </p>
           <Show when={hasSavedToken()}>
             <p class="ghff-options__hint">
               A token is currently saved. Enter a new one to replace it.
@@ -92,14 +88,16 @@ function OptionsPage() {
             >
               Save token
             </button>
-            <button
-              class="ghff-options__button ghff-options__button--secondary"
-              type="button"
-              onClick={removeToken}
-              disabled={isSaving() || !hasSavedToken()}
-            >
-              Remove token
-            </button>
+            <Show when={hasSavedToken()}>
+              <button
+                class="ghff-options__button ghff-options__button--secondary"
+                type="button"
+                onClick={removeToken}
+                disabled={isSaving()}
+              >
+                Remove token
+              </button>
+            </Show>
           </div>
         </form>
 

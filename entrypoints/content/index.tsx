@@ -32,7 +32,7 @@ type StatusCardState =
 
 const StatusCard: Component<{ state: StatusCardState }> = (props) => {
   type StatusCardPresentation = {
-    tone: "loading" | "success" | "muted" | "error" | "neutral";
+    tone: "loading" | "success" | "muted" | "error";
     title: string;
     detail?: string;
     meta?: string;
@@ -64,7 +64,7 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
         };
       case "up-to-date":
         return {
-          tone: "neutral",
+          tone: "muted",
           title: "Already up to date",
         };
       case "cross-repository":
@@ -80,7 +80,7 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
         };
       case "closed":
         return {
-          tone: "neutral",
+          tone: "muted",
           title: "Pull request is not open",
         };
       default:

@@ -37,11 +37,6 @@
   background: var(--bgColor-danger-muted, #ffebe9);
 }
 
-.ghff-status--neutral {
-  border-left-color: var(--borderColor-accent-emphasis, #0969da);
-  background: var(--bgColor-accent-muted, #ddf4ff);
-}
-
 /* Content spacing is intentionally tight because the card lives in the sidebar. */
 .ghff-status__title {
   font-size: 16px;

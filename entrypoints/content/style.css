@@ -9,7 +9,6 @@
 /* Base card shell shared by every status tone. */
 .ghff-status {
   border: 1px solid var(--borderColor-default, #d0d7de);
-  border-left-width: 4px;
   border-radius: 10px;
   background: var(--bgColor-muted, #f6f8fa);
   color: var(--fgColor-default, #1f2328);
@@ -18,22 +17,22 @@
 
 /* Tone variants mirror GitHub's success/attention/muted/danger palette. */
 .ghff-status--loading {
-  border-left-color: var(--borderColor-attention-emphasis, #9a6700);
+  border-color: var(--borderColor-attention-emphasis, #9a6700);
   background: var(--bgColor-attention-muted, #fff8c5);
 }
 
 .ghff-status--success {
-  border-left-color: var(--borderColor-success-emphasis, #1a7f37);
+  border-color: var(--borderColor-success-emphasis, #1a7f37);
   background: var(--bgColor-success-muted, #dafbe1);
 }
 
 .ghff-status--muted {
-  border-left-color: var(--borderColor-muted, #656d76);
+  border-color: var(--borderColor-muted, #656d76);
   background: var(--bgColor-muted, #f6f8fa);
 }
 
 .ghff-status--error {
-  border-left-color: var(--borderColor-danger-emphasis, #cf222e);
+  border-color: var(--borderColor-danger-emphasis, #cf222e);
   background: var(--bgColor-danger-muted, #ffebe9);
 }
 

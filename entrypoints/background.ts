@@ -272,6 +272,7 @@ async function githubRequest<T>(
   // fails the same way in the content script.
   const headers = new Headers(init.headers);
   headers.set("Accept", "application/vnd.github+json");
+  headers.set("Cache-Control", "no-cache");
   headers.set("X-GitHub-Api-Version", "2022-11-28");
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
@@ -279,6 +280,7 @@ async function githubRequest<T>(
 
   const response = await fetch(`https://api.github.com${pathname}`, {
     ...init,
+    cache: "no-store",
     headers,
   });
   let data: unknown = null;

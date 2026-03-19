@@ -34,6 +34,10 @@ type StatusCardState =
   | { kind: "loaded"; result: PullRequestStatusResult };
 
 type MergeState = { kind: "idle" } | { kind: "submitting" } | { kind: "error"; message: string };
+type RefreshOptions = {
+  bypassCache?: boolean;
+  bypassDebounce?: boolean;
+};
 
 const StatusCard: Component<{
   state: StatusCardState;
@@ -174,18 +178,21 @@ async function refresh(
   root: HTMLDivElement,
   setState: (state: StatusCardState) => void,
   setMergeState: (state: MergeState) => void,
+  options: RefreshOptions = {},
 ) {
   // Ignore refresh() call if refresh() has been called within
   // 100 milliseconds.
   //
   // GitHub can fire several navigation-related events for one transition.
   // Following logic collapses them into a single refresh tick.
-  if (pageState.scheduled) {
-    return;
+  if (!options.bypassDebounce) {
+    if (pageState.scheduled) {
+      return;
+    }
+    pageState.scheduled = true;
+    await sleep(100);
+    pageState.scheduled = false;
   }
-  pageState.scheduled = true;
-  await sleep(100);
-  pageState.scheduled = false;
 
   //
   // Actual refresh logic starts here.
@@ -217,7 +224,7 @@ async function refresh(
 
   // Reuse recent API results while the user flips between tabs inside the
   // same pull request page.
-  if (cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
+  if (!options.bypassCache && cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
     setMergeState({ kind: "idle" });
     setState({
       kind: "loaded",
@@ -228,7 +235,7 @@ async function refresh(
 
   setState({ kind: "loading" });
 
-  if (pageState.pendingKey === signature) {
+  if (!options.bypassCache && pageState.pendingKey === signature) {
     return;
   }
 
@@ -254,10 +261,14 @@ async function refresh(
       return;
     }
 
-    pageState.cache.set(signature, {
-      result: response.result,
-      cachedAt: Date.now(),
-    });
+    if (options.bypassCache) {
+      pageState.cache.delete(signature);
+    } else {
+      pageState.cache.set(signature, {
+        result: response.result,
+        cachedAt: Date.now(),
+      });
+    }
     setMergeState({ kind: "idle" });
     setState({
       kind: "loaded",
@@ -295,6 +306,7 @@ async function fastForwardMerge(
   setMergeState({ kind: "submitting" });
 
   try {
+    const signature = `${owner}/${repo}#${pullNumber}`;
     const response = (await browser.runtime.sendMessage({
       type: MERGE_PULL_REQUEST,
       owner,
@@ -307,8 +319,17 @@ async function fastForwardMerge(
       );
     }
 
-    pageState.cache.clear();
-    await refresh(root, setState, setMergeState);
+    pageState.cache.delete(signature);
+    await refresh(root, setState, setMergeState, {
+      bypassCache: true,
+      bypassDebounce: true,
+    });
+    window.setTimeout(() => {
+      pageState.cache.delete(signature);
+      void refresh(root, setState, setMergeState, {
+        bypassCache: true,
+      });
+    }, 1500);
   } catch (error) {
     setMergeState({
       kind: "error",

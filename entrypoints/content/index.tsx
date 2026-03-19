@@ -37,7 +37,6 @@ type StatusCardState =
 type MergeState = { kind: "idle" } | { kind: "submitting" } | { kind: "error"; message: string };
 type RefreshOptions = {
   bypassCache?: boolean;
-  bypassDebounce?: boolean;
   preserveState?: boolean;
 };
 
@@ -187,14 +186,12 @@ async function refresh(
   //
   // GitHub can fire several navigation-related events for one transition.
   // Following logic collapses them into a single refresh tick.
-  if (!options.bypassDebounce) {
-    if (pageState.scheduled) {
-      return;
-    }
-    pageState.scheduled = true;
-    await sleep(100);
-    pageState.scheduled = false;
+  if (pageState.scheduled) {
+    return;
   }
+  pageState.scheduled = true;
+  await sleep(100);
+  pageState.scheduled = false;
 
   //
   // Actual refresh logic starts here.

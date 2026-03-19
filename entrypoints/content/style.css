@@ -4,76 +4,76 @@
   display: block;
   margin: 16px 0 0;
   width: 100%;
-}
 
-/* Base card shell shared by every status tone. */
-.ghff-status {
-  border: 1px solid var(--borderColor-default, #d0d7de);
-  border-radius: 10px;
-  background: var(--bgColor-muted, #f6f8fa);
-  color: var(--fgColor-default, #1f2328);
-  padding: 14px 16px;
-}
+  /* Base card shell shared by every status tone. */
+  .ghff-status {
+    border: 1px solid var(--borderColor-default, #d0d7de);
+    border-radius: 10px;
+    background: var(--bgColor-muted, #f6f8fa);
+    color: var(--fgColor-default, #1f2328);
+    padding: 14px 16px;
+  }
 
-/* Tone variants mirror GitHub's success/attention/muted/danger palette. */
-.ghff-status--loading {
-  border-color: var(--borderColor-attention-emphasis, #9a6700);
-  background: var(--bgColor-attention-muted, #fff8c5);
-}
+  /* Tone variants mirror GitHub's success/attention/muted/danger palette. */
+  .ghff-status--loading {
+    border-color: var(--borderColor-attention-emphasis, #9a6700);
+    background: var(--bgColor-attention-muted, #fff8c5);
+  }
 
-.ghff-status--success {
-  border-color: var(--borderColor-success-emphasis, #1a7f37);
-  background: var(--bgColor-success-muted, #dafbe1);
-}
+  .ghff-status--success {
+    border-color: var(--borderColor-success-emphasis, #1a7f37);
+    background: var(--bgColor-success-muted, #dafbe1);
+  }
 
-.ghff-status--muted {
-  border-color: var(--borderColor-muted, #656d76);
-  background: var(--bgColor-muted, #f6f8fa);
-}
+  .ghff-status--muted {
+    border-color: var(--borderColor-muted, #656d76);
+    background: var(--bgColor-muted, #f6f8fa);
+  }
 
-.ghff-status--error {
-  border-color: var(--borderColor-danger-emphasis, #cf222e);
-  background: var(--bgColor-danger-muted, #ffebe9);
-}
+  .ghff-status--error {
+    border-color: var(--borderColor-danger-emphasis, #cf222e);
+    background: var(--bgColor-danger-muted, #ffebe9);
+  }
 
-/* Content spacing is intentionally tight because the card lives in the sidebar. */
-.ghff-status__title {
-  font-size: 16px;
-  font-weight: 600;
-  line-height: 1.4;
-}
+  /* Content spacing is intentionally tight because the card lives in the sidebar. */
+  .ghff-status__title {
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
 
-.ghff-status__detail {
-  font-size: 14px;
-  line-height: 1.5;
-  margin-top: 4px;
-}
+  .ghff-status__detail {
+    font-size: 14px;
+    line-height: 1.5;
+    margin-top: 4px;
+  }
 
-.ghff-status__meta {
-  font-size: 12px;
-  line-height: 1.5;
-  margin-top: 8px;
-  opacity: 0.78;
-}
+  .ghff-status__meta {
+    font-size: 12px;
+    line-height: 1.5;
+    margin-top: 8px;
+    opacity: 0.78;
+  }
 
-/* The future merge action lives in its own row to match GitHub's button rhythm. */
-.ghff-status__actions {
-  margin-top: 12px;
-}
+  /* The future merge action lives in its own row to match GitHub's button rhythm. */
+  .ghff-status__actions {
+    margin-top: 12px;
+  }
 
-.ghff-status__button {
-  appearance: none;
-  border: 1px solid var(--button-default-borderColor-rest, rgba(31, 35, 40, 0.15));
-  border-radius: 6px;
-  background: var(--button-primary-bgColor-rest, #1f883d);
-  color: var(--button-primary-fgColor-rest, #ffffff);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 20px;
-  padding: 6px 14px;
-}
+  .ghff-status__button {
+    appearance: none;
+    border: 1px solid var(--button-default-borderColor-rest, rgba(31, 35, 40, 0.15));
+    border-radius: 6px;
+    background: var(--button-primary-bgColor-rest, #1f883d);
+    color: var(--button-primary-fgColor-rest, #ffffff);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 20px;
+    padding: 6px 14px;
 
-.ghff-status__button:hover {
-  background: var(--button-primary-bgColor-hover, #1a7f37);
+    &:hover {
+      background: var(--button-primary-bgColor-hover, #1a7f37);
+    }
+  }
 }

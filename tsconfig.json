@@ -2,6 +2,7 @@
   "extends": "./.wxt/tsconfig.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "jsxImportSource": "solid-js"
+    "jsxImportSource": "solid-js",
+    "types": ["chrome-types"]
   }
 }

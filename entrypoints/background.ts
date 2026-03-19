@@ -8,18 +8,6 @@ import {
   type PullRequestStatusResult,
 } from "../utils/protocol";
 
-type RuntimeWithMessageCallback = {
-  onMessage: {
-    addListener(
-      callback: (
-        message: unknown,
-        sender: unknown,
-        sendResponse: (response: PullRequestStatusResponse) => void,
-      ) => boolean | void,
-    ): void;
-  };
-};
-
 type GitHubBranchReference = {
   sha?: string;
   repo?: {
@@ -43,25 +31,27 @@ export default defineBackground(() => {
   // Content scripts ask for a PR status snapshot and get back a small view model.
   void setStorageAccessLevelToTrustedContexts();
 
-  const chromeRuntime = (
-    globalThis as typeof globalThis & {
-      chrome?: {
-        runtime?: RuntimeWithMessageCallback;
-      };
-    }
-  ).chrome?.runtime;
-  const runtime = (chromeRuntime ?? browser.runtime) as RuntimeWithMessageCallback;
+  if (typeof chrome !== "undefined") {
+    chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+      if (!isPullRequestStatusRequest(message)) {
+        return undefined;
+      }
 
-  runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+      void getPullRequestStatusResponse(message).then(sendResponse);
+
+      // Chrome extension messaging keeps the channel open only when the listener
+      // returns true and replies through sendResponse asynchronously.
+      return true;
+    });
+    return;
+  }
+
+  browser.runtime.onMessage.addListener((message: unknown) => {
     if (!isPullRequestStatusRequest(message)) {
       return undefined;
     }
 
-    void sendPullRequestStatusResponse(message, sendResponse);
-
-    // Chrome extension messaging keeps the channel open only when the listener
-    // returns true and replies through sendResponse asynchronously.
-    return true;
+    return getPullRequestStatusResponse(message);
   });
 });
 
@@ -77,18 +67,17 @@ function isPullRequestStatusRequest(message: unknown): message is PullRequestSta
   );
 }
 
-async function sendPullRequestStatusResponse(
+async function getPullRequestStatusResponse(
   request: PullRequestStatusRequest,
-  sendResponse: (response: PullRequestStatusResponse) => void,
-) {
+): Promise<PullRequestStatusResponse> {
   try {
     const result = await getPullRequestStatus(request);
-    sendResponse({ ok: true, result });
+    return { ok: true, result };
   } catch (error) {
-    sendResponse({
+    return {
       ok: false,
       error: { message: error instanceof Error ? error.message : String(error) },
-    });
+    };
   }
 }
 
@@ -193,21 +182,11 @@ async function getGitHubFineGrainedToken(): Promise<string> {
 }
 
 async function setStorageAccessLevelToTrustedContexts() {
-  const storageArea = (
-    globalThis as typeof globalThis & {
-      chrome?: {
-        storage?: {
-          local?: {
-            setAccessLevel?(options: {
-              accessLevel: "TRUSTED_CONTEXTS" | "TRUSTED_AND_UNTRUSTED_CONTEXTS";
-            }): Promise<void> | void;
-          };
-        };
-      };
-    }
-  ).chrome?.storage?.local;
+  if (typeof chrome === "undefined") {
+    return;
+  }
 
-  await storageArea?.setAccessLevel?.({
+  await chrome.storage.local.setAccessLevel?.({
     accessLevel: "TRUSTED_CONTEXTS",
   });
 }

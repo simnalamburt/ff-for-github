@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@wxt-dev/module-solid": "^1.1.4",
+    "chrome-types": "^0.1.425",
     "eslint-plugin-solid": "^0.14.5",
     "oxfmt": "^0.41.0",
     "oxlint": "^1.56.0",

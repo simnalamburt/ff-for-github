@@ -36,7 +36,7 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
     tone: "loading" | "success" | "muted" | "error";
     title: string;
     detail?: string;
-    actionLabel?: string;
+    action?: boolean;
   };
   const presentation = createMemo<StatusCardPresentation>(() => {
     if (props.state.kind === "loading") {
@@ -60,7 +60,7 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
           tone: "success",
           title: "Fast-forward merge possible",
           detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          actionLabel: props.state.hasGitHubFineGrainedToken ? "Fast-forward merge" : undefined,
+          action: props.state.hasGitHubFineGrainedToken,
         };
       case "up-to-date":
         return {
@@ -98,8 +98,8 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
       <Show when={presentation().detail}>
         <div class="ghff-detail">{presentation().detail}</div>
       </Show>
-      <Show when={presentation().actionLabel}>
-        <button type="button">{presentation().actionLabel}</button>
+      <Show when={presentation().action}>
+        <button type="button">Fast-forward merge</button>
       </Show>
     </article>
   );

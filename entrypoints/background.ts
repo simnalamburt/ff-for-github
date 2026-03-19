@@ -3,12 +3,16 @@ import { browser } from "wxt/browser";
 import {
   GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY,
   GET_PULL_REQUEST_STATUS,
+  MERGE_PULL_REQUEST,
+  type MergePullRequestRequest,
+  type MergePullRequestResponse,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
 } from "../utils/protocol";
 
 type GitHubBranchReference = {
+  ref?: string;
   sha?: string;
   repo?: {
     full_name?: string;
@@ -41,25 +45,37 @@ export default defineBackground(() => {
 
   if (typeof chrome !== "undefined") {
     chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-      if (!isPullRequestStatusRequest(message)) {
-        return undefined;
+      if (isPullRequestStatusRequest(message)) {
+        void getPullRequestStatusResponse(message, sender).then(sendResponse);
+
+        // Chrome extension messaging keeps the channel open only when the listener
+        // returns true and replies through sendResponse asynchronously.
+        return true;
       }
 
-      void getPullRequestStatusResponse(message, sender).then(sendResponse);
+      if (isMergePullRequestRequest(message)) {
+        void mergePullRequestResponse(message, sender).then(sendResponse);
 
-      // Chrome extension messaging keeps the channel open only when the listener
-      // returns true and replies through sendResponse asynchronously.
-      return true;
+        // Chrome extension messaging keeps the channel open only when the listener
+        // returns true and replies through sendResponse asynchronously.
+        return true;
+      }
+
+      return undefined;
     });
     return;
   }
 
   browser.runtime.onMessage.addListener((message: unknown, sender) => {
-    if (!isPullRequestStatusRequest(message)) {
-      return undefined;
+    if (isPullRequestStatusRequest(message)) {
+      return getPullRequestStatusResponse(message, sender as RuntimeMessageSender);
     }
 
-    return getPullRequestStatusResponse(message, sender as RuntimeMessageSender);
+    if (isMergePullRequestRequest(message)) {
+      return mergePullRequestResponse(message, sender as RuntimeMessageSender);
+    }
+
+    return undefined;
   });
 });
 
@@ -75,14 +91,42 @@ function isPullRequestStatusRequest(message: unknown): message is PullRequestSta
   );
 }
 
+function isMergePullRequestRequest(message: unknown): message is MergePullRequestRequest {
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    "type" in message &&
+    "owner" in message &&
+    "repo" in message &&
+    "pullNumber" in message &&
+    (message as { type?: unknown }).type === MERGE_PULL_REQUEST
+  );
+}
+
 async function getPullRequestStatusResponse(
   request: PullRequestStatusRequest,
   sender: RuntimeMessageSender,
 ): Promise<PullRequestStatusResponse> {
   try {
-    const validatedRequest = validatePullRequestStatusRequestSender(request, sender);
+    const validatedRequest = validatePullRequestRequestSender(request, sender);
     const result = await getPullRequestStatus(validatedRequest);
     return { ok: true, result };
+  } catch (error) {
+    return {
+      ok: false,
+      error: { message: error instanceof Error ? error.message : String(error) },
+    };
+  }
+}
+
+async function mergePullRequestResponse(
+  request: MergePullRequestRequest,
+  sender: RuntimeMessageSender,
+): Promise<MergePullRequestResponse> {
+  try {
+    const validatedRequest = validatePullRequestRequestSender(request, sender);
+    await mergePullRequest(validatedRequest);
+    return { ok: true };
   } catch (error) {
     return {
       ok: false,
@@ -154,15 +198,88 @@ async function getPullRequestStatus({
   };
 }
 
-async function githubRequest<T>(pathname: string, token: string): Promise<T> {
+async function mergePullRequest({
+  owner,
+  repo,
+  pullNumber,
+}: MergePullRequestRequest): Promise<void> {
+  const token = await getGitHubFineGrainedToken();
+  if (token.trim() === "") {
+    throw new Error("No GitHub token is saved.");
+  }
+
+  const pullRequest = await githubRequest<GitHubPullRequestResponse>(
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(String(pullNumber))}`,
+    token,
+  );
+
+  const baseRepository = pullRequest.base?.repo?.full_name ?? "";
+  const headRepository = pullRequest.head?.repo?.full_name ?? "";
+  const baseRef = pullRequest.base?.ref ?? "";
+  const baseSha = pullRequest.base?.sha ?? "";
+  const headSha = pullRequest.head?.sha ?? "";
+  const state = pullRequest.state ?? "open";
+
+  if (state !== "open") {
+    throw new Error("Pull request is not open.");
+  }
+
+  if (!baseRepository || !headRepository || baseRepository !== headRepository) {
+    throw new Error("Fast-forward merge is only supported for same-repository pull requests.");
+  }
+
+  if (!baseRef || !baseSha || !headSha) {
+    throw new Error("Could not determine the pull request branch heads.");
+  }
+
+  const comparison = await githubRequest<GitHubCompareResponse>(
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseSha)}...${encodeURIComponent(headSha)}`,
+    token,
+  );
+
+  if (comparison.status === "identical") {
+    throw new Error("The base branch is already up to date.");
+  }
+  if (comparison.status === "behind") {
+    throw new Error("The base branch is already ahead of this pull request.");
+  }
+  if (comparison.status === "diverged") {
+    throw new Error("Fast-forward merge is not possible because the branches have diverged.");
+  }
+  if (comparison.status !== "ahead") {
+    throw new Error("GitHub did not return a comparison state this extension understands.");
+  }
+
+  await githubRequest(
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/git/refs/heads/${encodeGitReference(baseRef)}`,
+    token,
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        sha: headSha,
+        force: false,
+      }),
+    },
+  );
+}
+
+async function githubRequest<T>(
+  pathname: string,
+  token: string,
+  init: RequestInit = {},
+): Promise<T> {
   // Centralize GitHub API headers and error normalization so every request
   // fails the same way in the content script.
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/vnd.github+json");
+  headers.set("X-GitHub-Api-Version", "2022-11-28");
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
+  }
+
   const response = await fetch(`https://api.github.com${pathname}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
+    ...init,
+    headers,
   });
   let data: unknown = null;
   try {
@@ -185,16 +302,15 @@ async function githubRequest<T>(pathname: string, token: string): Promise<T> {
   return data as T;
 }
 
-function validatePullRequestStatusRequestSender(
-  request: PullRequestStatusRequest,
-  sender: RuntimeMessageSender,
-): PullRequestStatusRequest {
+function validatePullRequestRequestSender<
+  T extends { owner: string; repo: string; pullNumber: number },
+>(request: T, sender: RuntimeMessageSender): T {
   const senderUrl = sender.tab?.url;
   if (!senderUrl) {
     throw new Error("Pull request status requests must come from a browser tab.");
   }
 
-  const senderRequest = parsePullRequestStatusRequestFromUrl(senderUrl);
+  const senderRequest = parsePullRequestLocatorFromUrl(senderUrl);
   if (!senderRequest) {
     throw new Error(
       "Pull request status requests are only allowed from GitHub pull request pages.",
@@ -209,10 +325,10 @@ function validatePullRequestStatusRequestSender(
     throw new Error("Pull request status request did not match the sender tab.");
   }
 
-  return senderRequest;
+  return request;
 }
 
-function parsePullRequestStatusRequestFromUrl(urlString: string): PullRequestStatusRequest | null {
+function parsePullRequestLocatorFromUrl(urlString: string) {
   let url: URL;
   try {
     url = new URL(urlString);
@@ -236,11 +352,14 @@ function parsePullRequestStatusRequestFromUrl(urlString: string): PullRequestSta
   }
 
   return {
-    type: GET_PULL_REQUEST_STATUS,
     owner,
     repo,
     pullNumber,
   };
+}
+
+function encodeGitReference(reference: string) {
+  return reference.split("/").map(encodeURIComponent).join("/");
 }
 
 async function getGitHubFineGrainedToken(): Promise<string> {

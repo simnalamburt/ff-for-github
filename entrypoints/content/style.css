@@ -39,6 +39,11 @@
     opacity: 0.78;
   }
 
+  > .ghff-detail--error {
+    color: var(--fgColor-danger, #d1242f);
+    opacity: 1;
+  }
+
   > button {
     appearance: none;
     border: 1px solid var(--button-default-borderColor-rest, rgba(31, 35, 40, 0.15));
@@ -55,6 +60,11 @@
 
     &:hover {
       background: var(--button-primary-bgColor-hover, #1a7f37);
+    }
+
+    &:disabled {
+      cursor: default;
+      opacity: 0.7;
     }
   }
 }

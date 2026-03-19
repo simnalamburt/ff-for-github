@@ -5,6 +5,9 @@ import { browser } from "wxt/browser";
 import "./style.css";
 import {
   GET_PULL_REQUEST_STATUS,
+  MERGE_PULL_REQUEST,
+  type MergePullRequestRequest,
+  type MergePullRequestResponse,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
@@ -30,7 +33,13 @@ type StatusCardState =
   | { kind: "error"; message: string }
   | { kind: "loaded"; result: PullRequestStatusResult };
 
-const StatusCard: Component<{ state: StatusCardState }> = (props) => {
+type MergeState = { kind: "idle" } | { kind: "submitting" } | { kind: "error"; message: string };
+
+const StatusCard: Component<{
+  state: StatusCardState;
+  mergeState: MergeState;
+  onMerge: () => void;
+}> = (props) => {
   type StatusCardPresentation = {
     tone: "loading" | "success" | "muted" | "error";
     title: string;
@@ -97,8 +106,19 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
       <Show when={presentation().detail}>
         <div class="ghff-detail">{presentation().detail}</div>
       </Show>
+      <Show when={props.mergeState.kind === "error"}>
+        <div class="ghff-detail ghff-detail--error">
+          {props.mergeState.kind === "error" ? props.mergeState.message : ""}
+        </div>
+      </Show>
       <Show when={presentation().action}>
-        <button type="button">Fast-forward merge</button>
+        <button
+          type="button"
+          onClick={() => props.onMerge()}
+          disabled={props.mergeState.kind === "submitting"}
+        >
+          {props.mergeState.kind === "submitting" ? "Fast-forwarding..." : "Fast-forward merge"}
+        </button>
       </Show>
     </article>
   );
@@ -114,18 +134,30 @@ export default defineContentScript({
     root.id = ROOT_ID;
 
     const [state, setState] = createSignal<StatusCardState>({ kind: "loading" });
+    const [mergeState, setMergeState] = createSignal<MergeState>({ kind: "idle" });
 
-    render(() => <StatusCard state={state()} />, root);
+    render(
+      () => (
+        <StatusCard
+          state={state()}
+          mergeState={mergeState()}
+          onMerge={() => {
+            void fastForwardMerge(root, setState, setMergeState);
+          }}
+        />
+      ),
+      root,
+    );
 
     // Re-run the PR check after both full page loads and GitHub's partial
     // navigations so the card follows in-app route changes.
-    refresh(root, setState);
+    refresh(root, setState, setMergeState);
 
-    window.addEventListener("load", () => refresh(root, setState));
-    window.addEventListener("popstate", () => refresh(root, setState));
-    document.addEventListener("pjax:end", () => refresh(root, setState), true);
-    document.addEventListener("turbo:load", () => refresh(root, setState), true);
-    document.addEventListener("turbo:render", () => refresh(root, setState), true);
+    window.addEventListener("load", () => refresh(root, setState, setMergeState));
+    window.addEventListener("popstate", () => refresh(root, setState, setMergeState));
+    document.addEventListener("pjax:end", () => refresh(root, setState, setMergeState), true);
+    document.addEventListener("turbo:load", () => refresh(root, setState, setMergeState), true);
+    document.addEventListener("turbo:render", () => refresh(root, setState, setMergeState), true);
 
     setInterval(() => {
       if (location.pathname === pageState.currentPath) {
@@ -133,12 +165,16 @@ export default defineContentScript({
       }
 
       pageState.currentPath = location.pathname;
-      refresh(root, setState);
+      refresh(root, setState, setMergeState);
     }, URL_CHECK_INTERVAL_MS);
   },
 });
 
-async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) => void) {
+async function refresh(
+  root: HTMLDivElement,
+  setState: (state: StatusCardState) => void,
+  setMergeState: (state: MergeState) => void,
+) {
   // Ignore refresh() call if refresh() has been called within
   // 100 milliseconds.
   //
@@ -159,6 +195,7 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   const match = location.pathname.match(PR_PATH_PATTERN);
   if (!match) {
     root.remove();
+    setMergeState({ kind: "idle" });
     return;
   }
   const [, owner, repo, pullNumber] = match;
@@ -168,6 +205,7 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   const mountTarget = document.querySelector<HTMLElement>("#partial-discussion-sidebar");
   if (!mountTarget) {
     root.remove();
+    setMergeState({ kind: "idle" });
     return;
   }
   // Ensure the root is mounted properly
@@ -180,6 +218,7 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
   // Reuse recent API results while the user flips between tabs inside the
   // same pull request page.
   if (cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
+    setMergeState({ kind: "idle" });
     setState({
       kind: "loaded",
       result: cached.result,
@@ -219,6 +258,7 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
       result: response.result,
       cachedAt: Date.now(),
     });
+    setMergeState({ kind: "idle" });
     setState({
       kind: "loaded",
       result: response.result,
@@ -236,6 +276,44 @@ async function refresh(root: HTMLDivElement, setState: (state: StatusCardState) 
     if (pageState.pendingKey === signature) {
       pageState.pendingKey = null;
     }
+  }
+}
+
+async function fastForwardMerge(
+  root: HTMLDivElement,
+  setState: (state: StatusCardState) => void,
+  setMergeState: (state: MergeState) => void,
+) {
+  const match = location.pathname.match(PR_PATH_PATTERN);
+  if (!match) {
+    setMergeState({ kind: "error", message: "This is no longer a pull request page." });
+    return;
+  }
+
+  const [, owner, repo, pullNumber] = match;
+
+  setMergeState({ kind: "submitting" });
+
+  try {
+    const response = (await browser.runtime.sendMessage({
+      type: MERGE_PULL_REQUEST,
+      owner,
+      repo,
+      pullNumber: Number(pullNumber),
+    } satisfies MergePullRequestRequest)) as MergePullRequestResponse | undefined;
+    if (!response?.ok) {
+      throw new Error(
+        response?.error.message ?? "The extension could not fast-forward merge this PR.",
+      );
+    }
+
+    pageState.cache.clear();
+    await refresh(root, setState, setMergeState);
+  } catch (error) {
+    setMergeState({
+      kind: "error",
+      message: error instanceof Error ? error.message : String(error),
+    });
   }
 }
 

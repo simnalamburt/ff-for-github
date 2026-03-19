@@ -83,7 +83,7 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
           tone: "muted",
           title: "Pull request is not open",
         };
-      default:
+      case "unknown":
         return {
           tone: "error",
           title: "Fast-forward status unavailable",

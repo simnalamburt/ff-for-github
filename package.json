@@ -20,6 +20,7 @@
     "solid-js": "^1.9.11"
   },
   "devDependencies": {
+    "@wxt-dev/auto-icons": "^1.1.1",
     "@wxt-dev/module-solid": "^1.1.4",
     "chrome-types": "^0.1.425",
     "eslint-plugin-solid": "^0.14.5",
@@ -32,6 +33,7 @@
   "pnpm": {
     "ignoredBuiltDependencies": [
       "esbuild",
+      "sharp",
       "spawn-sync"
     ]
   }

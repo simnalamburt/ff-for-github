@@ -44,6 +44,21 @@ body {
   margin: 12px 0 0;
 }
 
+.ghff-options__link-row {
+  margin: 12px 0 0;
+}
+
+.ghff-options__link {
+  color: #58a6ff;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.ghff-options__link:hover {
+  text-decoration: underline;
+}
+
 .ghff-options__form {
   margin-top: 28px;
 }

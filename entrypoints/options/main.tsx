@@ -7,6 +7,8 @@ import { GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY } from "../../utils/protocol";
 
 const GITHUB_FINE_GRAINED_TOKEN_PATTERN = /^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$/;
 const GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH = 93;
+const GITHUB_FINE_GRAINED_TOKEN_CREATION_URL =
+  "https://github.com/settings/personal-access-tokens/new?name=Fast-forward%20merge%20for%20GitHub&description=A%20fine-grained%20token%20for%20the%20Chrome%20extension%20Fast-forward%20merge%20for%20GitHub.&expires_in=none&contents=write";
 
 function sanitizeTokenInput(value: string) {
   return value.replaceAll(/[^a-zA-Z0-9_]/g, "").slice(0, GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH);
@@ -76,6 +78,16 @@ function OptionsPage() {
         <p class="ghff-options__lead">
           Save a GitHub fine-grained personal access token to enable authenticated API requests and
           future fast-forward merge actions.
+        </p>
+        <p class="ghff-options__link-row">
+          <a
+            class="ghff-options__link"
+            href={GITHUB_FINE_GRAINED_TOKEN_CREATION_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Create a fine-grained token on GitHub
+          </a>
         </p>
 
         <form class="ghff-options__form" onSubmit={saveToken}>

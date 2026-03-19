@@ -5,7 +5,7 @@ import {
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
-} from "../lib/ghff";
+} from "../utils/protocol";
 
 type RuntimeWithMessageCallback = {
   onMessage: {

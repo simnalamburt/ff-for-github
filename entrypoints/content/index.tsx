@@ -2,13 +2,13 @@ import { Show, createMemo, createSignal, type Component } from "solid-js";
 import { render } from "solid-js/web";
 import { browser } from "wxt/browser";
 
-import "../styles/content.css";
+import "./style.css";
 import {
   GET_PULL_REQUEST_STATUS,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
-} from "../lib/ghff";
+} from "../../utils/protocol";
 
 const ROOT_ID = "ghff-status-root";
 const PAGE_CACHE_TTL_MS = 30_000;

@@ -2,7 +2,10 @@ import { defineConfig } from "wxt";
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
-  modules: ["@wxt-dev/module-solid"],
+  modules: ["@wxt-dev/module-solid", "@wxt-dev/auto-icons"],
+  autoIcons: {
+    baseIconPath: "assets/icon.svg",
+  },
   manifest: {
     name: "Fast-forward merge for GitHub",
     description: "Shows whether a GitHub pull request can be fast-forward merged.",

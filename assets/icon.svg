@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Fast-forward merge for GitHub icon">
+  <defs>
+    <linearGradient id="ghff-bg" x1="16" y1="12" x2="112" y2="116" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#151b23" />
+      <stop offset="1" stop-color="#0d1117" />
+    </linearGradient>
+    <linearGradient id="ghff-accent" x1="72" y1="42" x2="110" y2="84" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#3fb950" />
+      <stop offset="1" stop-color="#2ea043" />
+    </linearGradient>
+  </defs>
+
+  <rect x="8" y="8" width="112" height="112" rx="26" fill="url(#ghff-bg)" stroke="#30363d" stroke-width="4" />
+
+  <path
+    d="M36 38v52m0-26h38"
+    fill="none"
+    stroke="#f0f6fc"
+    stroke-width="8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+
+  <circle cx="36" cy="38" r="8" fill="#f0f6fc" />
+  <circle cx="36" cy="90" r="8" fill="#f0f6fc" />
+  <circle cx="62" cy="64" r="8" fill="#f0f6fc" />
+
+  <path d="M70 64h8" fill="none" stroke="#3fb950" stroke-width="8" stroke-linecap="round" />
+  <circle cx="92" cy="64" r="20" fill="url(#ghff-accent)" />
+  <path
+    d="M84 64h14m-8-8 8 8-8 8"
+    fill="none"
+    stroke="#fff"
+    stroke-width="8"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

@@ -94,7 +94,7 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
   });
 
   return (
-    <section class={`ghff-status ghff-status--${presentation().tone}`}>
+    <section class="ghff-status" data-tone={presentation().tone}>
       <div class="ghff-status__title">{presentation().title}</div>
       <Show when={presentation().detail}>
         <div class="ghff-status__detail">{presentation().detail}</div>

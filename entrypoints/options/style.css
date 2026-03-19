@@ -155,6 +155,14 @@ body {
   margin: 16px 0 0;
 }
 
+.ghff-options__status-login {
+  font-weight: 700;
+}
+
+.ghff-options__status--muted {
+  color: #9da7b3;
+}
+
 .ghff-options__status--error {
   color: #ff7b72;
 }

@@ -103,11 +103,9 @@ const StatusCard: Component<{ state: StatusCardState }> = (props) => {
         <div class="ghff-status__meta">{presentation().meta}</div>
       </Show>
       <Show when={presentation().actionLabel}>
-        <div class="ghff-status__actions">
-          <button class="ghff-status__button" type="button">
-            {presentation().actionLabel}
-          </button>
-        </div>
+        <button class="ghff-status__button" type="button">
+          {presentation().actionLabel}
+        </button>
       </Show>
     </section>
   );

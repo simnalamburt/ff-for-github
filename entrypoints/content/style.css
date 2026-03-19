@@ -55,11 +55,6 @@
     opacity: 0.78;
   }
 
-  /* The future merge action lives in its own row to match GitHub's button rhythm. */
-  .ghff-status__actions {
-    margin-top: 12px;
-  }
-
   .ghff-status__button {
     appearance: none;
     border: 1px solid var(--button-default-borderColor-rest, rgba(31, 35, 40, 0.15));
@@ -67,9 +62,11 @@
     background: var(--button-primary-bgColor-rest, #1f883d);
     color: var(--button-primary-fgColor-rest, #ffffff);
     cursor: pointer;
+    display: inline-block;
     font-size: 14px;
     font-weight: 600;
     line-height: 20px;
+    margin-top: 12px;
     padding: 6px 14px;
 
     &:hover {

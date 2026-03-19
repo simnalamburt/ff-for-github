@@ -164,8 +164,8 @@ async function getPullRequestStatus({
     };
   }
 
-  // The eventual merge action will update the base ref in place, so for now we
-  // only surface status for same-repository pull requests.
+  // The merge action updates the base ref in place, so this extension only
+  // surfaces status for same-repository pull requests.
   if (!baseRepository || !headRepository || baseRepository !== headRepository) {
     return {
       hasGitHubFineGrainedToken,

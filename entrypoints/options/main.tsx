@@ -240,7 +240,7 @@ function OptionsPage() {
         <h1 class="ghff-options__title">Fast-forward merge for GitHub</h1>
         <p class="ghff-options__lead">
           Save a GitHub fine-grained personal access token to enable authenticated API requests and
-          future fast-forward merge actions.
+          fast-forward merge actions.
         </p>
         <p class="ghff-options__link-row">
           <a

@@ -23,6 +23,7 @@ const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
 const pageState = {
   cache: new Map<string, { cachedAt: number; result: PullRequestStatusResult }>(),
   currentPath: "",
+  optimisticClosedUntil: new Map<string, number>(),
   pendingKey: null as string | null,
   requestId: 0,
   scheduled: false,
@@ -37,6 +38,7 @@ type MergeState = { kind: "idle" } | { kind: "submitting" } | { kind: "error"; m
 type RefreshOptions = {
   bypassCache?: boolean;
   bypassDebounce?: boolean;
+  preserveState?: boolean;
 };
 
 const StatusCard: Component<{
@@ -146,7 +148,7 @@ export default defineContentScript({
           state={state()}
           mergeState={mergeState()}
           onMerge={() => {
-            void fastForwardMerge(root, setState, setMergeState);
+            void fastForwardMerge(root, state, setState, setMergeState);
           }}
         />
       ),
@@ -233,7 +235,9 @@ async function refresh(
     return;
   }
 
-  setState({ kind: "loading" });
+  if (!options.preserveState) {
+    setState({ kind: "loading" });
+  }
 
   if (!options.bypassCache && pageState.pendingKey === signature) {
     return;
@@ -261,6 +265,19 @@ async function refresh(
       return;
     }
 
+    const optimisticClosedUntil = pageState.optimisticClosedUntil.get(signature) ?? 0;
+    if (optimisticClosedUntil > Date.now() && response.result.status !== "closed") {
+      window.setTimeout(() => {
+        void refresh(root, setState, setMergeState, {
+          bypassCache: true,
+          preserveState: true,
+        });
+      }, 1000);
+      return;
+    }
+
+    pageState.optimisticClosedUntil.delete(signature);
+
     if (options.bypassCache) {
       pageState.cache.delete(signature);
     } else {
@@ -279,6 +296,10 @@ async function refresh(
       return;
     }
 
+    if (options.preserveState) {
+      return;
+    }
+
     setState({
       kind: "error",
       message: error instanceof Error ? error.message : String(error),
@@ -292,6 +313,7 @@ async function refresh(
 
 async function fastForwardMerge(
   root: HTMLDivElement,
+  state: () => StatusCardState,
   setState: (state: StatusCardState) => void,
   setMergeState: (state: MergeState) => void,
 ) {
@@ -319,18 +341,33 @@ async function fastForwardMerge(
       );
     }
 
-    pageState.cache.delete(signature);
-    await refresh(root, setState, setMergeState, {
-      bypassCache: true,
-      bypassDebounce: true,
+    const currentState = state();
+    const optimisticClosedResult: PullRequestStatusResult = {
+      aheadBy: 0,
+      hasGitHubFineGrainedToken:
+        currentState.kind === "loaded" ? currentState.result.hasGitHubFineGrainedToken : true,
+      status: "closed",
+    };
+    pageState.optimisticClosedUntil.set(signature, Date.now() + 5_000);
+    pageState.cache.set(signature, {
+      result: optimisticClosedResult,
+      cachedAt: Date.now(),
     });
+    setMergeState({ kind: "idle" });
+    setState({
+      kind: "loaded",
+      result: optimisticClosedResult,
+    });
+
     window.setTimeout(() => {
       pageState.cache.delete(signature);
       void refresh(root, setState, setMergeState, {
         bypassCache: true,
+        preserveState: true,
       });
     }, 1500);
   } catch (error) {
+    pageState.optimisticClosedUntil.delete(`${owner}/${repo}#${pullNumber}`);
     setMergeState({
       kind: "error",
       message: error instanceof Error ? error.message : String(error),

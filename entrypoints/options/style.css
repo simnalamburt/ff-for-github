@@ -72,6 +72,21 @@ body {
   outline-offset: 0;
 }
 
+.ghff-options__input[aria-invalid="true"] {
+  border-color: #f85149;
+}
+
+.ghff-options__input[aria-invalid="true"]:focus {
+  outline-color: rgba(248, 81, 73, 0.25);
+}
+
+.ghff-options__error {
+  color: #ff7b72;
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+
 .ghff-options__hint {
   color: #9da7b3;
   font-size: 13px;
@@ -123,6 +138,10 @@ body {
   color: #7ee787;
   font-size: 14px;
   margin: 16px 0 0;
+}
+
+.ghff-options__status--error {
+  color: #ff7b72;
 }
 
 @media (max-width: 640px) {

@@ -5,11 +5,23 @@ import { browser } from "wxt/browser";
 import "./style.css";
 import { GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY } from "../../utils/protocol";
 
+const GITHUB_FINE_GRAINED_TOKEN_PATTERN = /^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$/;
+const GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH = 93;
+
+function sanitizeTokenInput(value: string) {
+  return value.replaceAll(/[^a-zA-Z0-9_]/g, "").slice(0, GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH);
+}
+
 function OptionsPage() {
   const [token, setToken] = createSignal("");
   const [hasSavedToken, setHasSavedToken] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
   const [statusMessage, setStatusMessage] = createSignal("");
+  const [errorMessage, setErrorMessage] = createSignal("");
+
+  const trimmedToken = () => token().trim();
+  const hasTokenInput = () => trimmedToken() !== "";
+  const hasValidTokenInput = () => GITHUB_FINE_GRAINED_TOKEN_PATTERN.test(trimmedToken());
 
   onMount(async () => {
     const stored = await browser.storage.local.get(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
@@ -19,16 +31,21 @@ function OptionsPage() {
 
   async function saveToken(event: SubmitEvent) {
     event.preventDefault();
-    const trimmedToken = token().trim();
-    if (trimmedToken === "") {
+    if (!hasTokenInput()) {
+      return;
+    }
+    if (!hasValidTokenInput()) {
+      setErrorMessage("Invalid token format");
+      setStatusMessage("");
       return;
     }
 
     setIsSaving(true);
+    setErrorMessage("");
 
     try {
       await browser.storage.local.set({
-        [GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY]: trimmedToken,
+        [GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY]: trimmedToken(),
       });
       setToken("");
       setHasSavedToken(true);
@@ -40,6 +57,7 @@ function OptionsPage() {
 
   async function removeToken() {
     setIsSaving(true);
+    setErrorMessage("");
 
     try {
       await browser.storage.local.remove(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
@@ -69,11 +87,22 @@ function OptionsPage() {
             class="ghff-options__input"
             type="password"
             value={token()}
-            onInput={(event) => setToken(event.currentTarget.value)}
+            onInput={(event) => {
+              const sanitizedToken = sanitizeTokenInput(event.currentTarget.value);
+              event.currentTarget.value = sanitizedToken;
+              setToken(sanitizedToken);
+              setStatusMessage("");
+              setErrorMessage("");
+            }}
             placeholder="github_pat_..."
             spellcheck={false}
             autocomplete="off"
+            maxLength={GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH}
+            aria-invalid={hasTokenInput() && !hasValidTokenInput()}
           />
+          <Show when={hasTokenInput() && !hasValidTokenInput()}>
+            <p class="ghff-options__error">Invalid token format.</p>
+          </Show>
           <Show when={hasSavedToken()}>
             <p class="ghff-options__hint">
               A token is currently saved. Enter a new one to replace it.
@@ -84,7 +113,7 @@ function OptionsPage() {
             <button
               class="ghff-options__button ghff-options__button--primary"
               type="submit"
-              disabled={isSaving() || token().trim() === ""}
+              disabled={isSaving() || !hasTokenInput() || !hasValidTokenInput()}
             >
               Save token
             </button>
@@ -100,6 +129,12 @@ function OptionsPage() {
             </Show>
           </div>
         </form>
+
+        <Show when={errorMessage()}>
+          <p class="ghff-options__status ghff-options__status--error" role="alert">
+            {errorMessage()}
+          </p>
+        </Show>
 
         <Show when={statusMessage()}>
           <p class="ghff-options__status" role="status">

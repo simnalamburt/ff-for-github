@@ -7,23 +7,31 @@ import { GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY } from "../../utils/protocol";
 
 function OptionsPage() {
   const [token, setToken] = createSignal("");
+  const [hasSavedToken, setHasSavedToken] = createSignal(false);
   const [isSaving, setIsSaving] = createSignal(false);
   const [statusMessage, setStatusMessage] = createSignal("");
 
   onMount(async () => {
     const stored = await browser.storage.local.get(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
     const savedToken = stored[GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY];
-    setToken(typeof savedToken === "string" ? savedToken : "");
+    setHasSavedToken(typeof savedToken === "string" && savedToken.trim() !== "");
   });
 
   async function saveToken(event: SubmitEvent) {
     event.preventDefault();
+    const trimmedToken = token().trim();
+    if (trimmedToken === "") {
+      return;
+    }
+
     setIsSaving(true);
 
     try {
       await browser.storage.local.set({
-        [GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY]: token().trim(),
+        [GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY]: trimmedToken,
       });
+      setToken("");
+      setHasSavedToken(true);
       setStatusMessage("Token saved.");
     } finally {
       setIsSaving(false);
@@ -36,6 +44,7 @@ function OptionsPage() {
     try {
       await browser.storage.local.remove(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
       setToken("");
+      setHasSavedToken(false);
       setStatusMessage("Token removed.");
     } finally {
       setIsSaving(false);
@@ -66,14 +75,20 @@ function OptionsPage() {
             autocomplete="off"
           />
           <p class="ghff-options__hint">
-            The token is stored in this browser profile with <code>storage.local</code>.
+            The token is stored in this browser profile with <code>storage.local</code>. The saved
+            value is not shown again after this page reloads.
           </p>
+          <Show when={hasSavedToken()}>
+            <p class="ghff-options__hint">
+              A token is currently saved. Enter a new one to replace it.
+            </p>
+          </Show>
 
           <div class="ghff-options__actions">
             <button
               class="ghff-options__button ghff-options__button--primary"
               type="submit"
-              disabled={isSaving()}
+              disabled={isSaving() || token().trim() === ""}
             >
               Save token
             </button>
@@ -81,7 +96,7 @@ function OptionsPage() {
               class="ghff-options__button ghff-options__button--secondary"
               type="button"
               onClick={removeToken}
-              disabled={isSaving() || token() === ""}
+              disabled={isSaving() || !hasSavedToken()}
             >
               Remove token
             </button>

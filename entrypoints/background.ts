@@ -26,18 +26,26 @@ type GitHubCompareResponse = {
   ahead_by?: number;
 };
 
+type RuntimeMessageSender = {
+  tab?: {
+    url?: string;
+  };
+};
+
+const GITHUB_PULL_REQUEST_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
+
 export default defineBackground(() => {
   // The background worker is the single place that talks to the GitHub API.
   // Content scripts ask for a PR status snapshot and get back a small view model.
   void setStorageAccessLevelToTrustedContexts();
 
   if (typeof chrome !== "undefined") {
-    chrome.runtime.onMessage.addListener((message: unknown, _sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
       if (!isPullRequestStatusRequest(message)) {
         return undefined;
       }
 
-      void getPullRequestStatusResponse(message).then(sendResponse);
+      void getPullRequestStatusResponse(message, sender).then(sendResponse);
 
       // Chrome extension messaging keeps the channel open only when the listener
       // returns true and replies through sendResponse asynchronously.
@@ -46,12 +54,12 @@ export default defineBackground(() => {
     return;
   }
 
-  browser.runtime.onMessage.addListener((message: unknown) => {
+  browser.runtime.onMessage.addListener((message: unknown, sender) => {
     if (!isPullRequestStatusRequest(message)) {
       return undefined;
     }
 
-    return getPullRequestStatusResponse(message);
+    return getPullRequestStatusResponse(message, sender as RuntimeMessageSender);
   });
 });
 
@@ -69,9 +77,11 @@ function isPullRequestStatusRequest(message: unknown): message is PullRequestSta
 
 async function getPullRequestStatusResponse(
   request: PullRequestStatusRequest,
+  sender: RuntimeMessageSender,
 ): Promise<PullRequestStatusResponse> {
   try {
-    const result = await getPullRequestStatus(request);
+    const validatedRequest = validatePullRequestStatusRequestSender(request, sender);
+    const result = await getPullRequestStatus(validatedRequest);
     return { ok: true, result };
   } catch (error) {
     return {
@@ -173,6 +183,64 @@ async function githubRequest<T>(pathname: string, token: string): Promise<T> {
   }
 
   return data as T;
+}
+
+function validatePullRequestStatusRequestSender(
+  request: PullRequestStatusRequest,
+  sender: RuntimeMessageSender,
+): PullRequestStatusRequest {
+  const senderUrl = sender.tab?.url;
+  if (!senderUrl) {
+    throw new Error("Pull request status requests must come from a browser tab.");
+  }
+
+  const senderRequest = parsePullRequestStatusRequestFromUrl(senderUrl);
+  if (!senderRequest) {
+    throw new Error(
+      "Pull request status requests are only allowed from GitHub pull request pages.",
+    );
+  }
+
+  if (
+    senderRequest.owner !== request.owner ||
+    senderRequest.repo !== request.repo ||
+    senderRequest.pullNumber !== request.pullNumber
+  ) {
+    throw new Error("Pull request status request did not match the sender tab.");
+  }
+
+  return senderRequest;
+}
+
+function parsePullRequestStatusRequestFromUrl(urlString: string): PullRequestStatusRequest | null {
+  let url: URL;
+  try {
+    url = new URL(urlString);
+  } catch {
+    return null;
+  }
+
+  if (url.protocol !== "https:" || url.hostname !== "github.com") {
+    return null;
+  }
+
+  const match = url.pathname.match(GITHUB_PULL_REQUEST_PATH_PATTERN);
+  if (!match) {
+    return null;
+  }
+
+  const [, owner, repo, pullNumberText] = match;
+  const pullNumber = Number(pullNumberText);
+  if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0) {
+    return null;
+  }
+
+  return {
+    type: GET_PULL_REQUEST_STATUS,
+    owner,
+    repo,
+    pullNumber,
+  };
 }
 
 async function getGitHubFineGrainedToken(): Promise<string> {

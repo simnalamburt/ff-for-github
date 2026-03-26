@@ -73,7 +73,7 @@ const StatusCard: Component<{
           tone: "success",
           title: "Fast-forward merge possible",
           detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.result.hasGitHubFineGrainedToken,
+          action: props.state.result.hasGitHubPersonalAccessToken,
         };
       case "up-to-date":
         return {
@@ -341,8 +341,8 @@ async function fastForwardMerge(
     const currentState = state();
     const optimisticClosedResult: PullRequestStatusResult = {
       aheadBy: 0,
-      hasGitHubFineGrainedToken:
-        currentState.kind === "loaded" ? currentState.result.hasGitHubFineGrainedToken : true,
+      hasGitHubPersonalAccessToken:
+        currentState.kind === "loaded" ? currentState.result.hasGitHubPersonalAccessToken : true,
       status: "closed",
     };
     pageState.optimisticClosedUntil.set(signature, Date.now() + 5_000);

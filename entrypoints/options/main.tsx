@@ -3,12 +3,15 @@ import { render } from "solid-js/web";
 import { browser } from "wxt/browser";
 
 import "./style.css";
-import { GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY } from "../../utils/protocol";
+import { GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY } from "../../utils/protocol";
 
-const GITHUB_FINE_GRAINED_TOKEN_PATTERN = /^github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59}$/;
-const GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH = 93;
-const GITHUB_FINE_GRAINED_TOKEN_CREATION_URL =
-  "https://github.com/settings/personal-access-tokens/new?name=Fast-forward%20merge%20for%20GitHub&description=A%20fine-grained%20token%20for%20the%20Chrome%20extension%20Fast-forward%20merge%20for%20GitHub.&expires_in=none&contents=write";
+const GITHUB_PERSONAL_ACCESS_TOKEN_PATTERN =
+  /^(?:ghp_[a-zA-Z0-9]{36}|github_pat_[a-zA-Z0-9]{22}_[a-zA-Z0-9]{59})$/;
+const GITHUB_PERSONAL_ACCESS_TOKEN_MAX_LENGTH = 93;
+const GITHUB_CLASSIC_PERSONAL_ACCESS_TOKEN_CREATION_URL =
+  "https://github.com/settings/tokens/new?description=Fast-forward+merge+for+GitHub&scopes=repo";
+const GITHUB_FINE_GRAINED_PERSONAL_ACCESS_TOKEN_CREATION_URL =
+  "https://github.com/settings/personal-access-tokens/new?name=Fast-forward+merge+for+GitHub&description=A+fine-grained+token+for+the+Chrome+extension+Fast-forward+merge+for+GitHub.&expires_in=none&contents=write";
 const GITHUB_CURRENT_USER_URL = "https://api.github.com/user";
 const GITHUB_VALIDATION_DEBOUNCE_MS = 400;
 
@@ -24,7 +27,7 @@ type TokenValidationState =
   | { kind: "error"; message: string };
 
 function sanitizeTokenInput(value: string) {
-  return value.replaceAll(/[^a-zA-Z0-9_]/g, "").slice(0, GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH);
+  return value.replaceAll(/[^a-zA-Z0-9_]/g, "").slice(0, GITHUB_PERSONAL_ACCESS_TOKEN_MAX_LENGTH);
 }
 
 function parseTokenExpirationHeader(headerValue: string | null) {
@@ -83,7 +86,7 @@ function formatTokenExpirationLabel(expiresAt: Date | null) {
   return `Expires in ${relativeLabel} (${absoluteLabel}).`;
 }
 
-async function validateGitHubFineGrainedToken(
+async function validateGitHubPersonalAccessToken(
   token: string,
   signal: AbortSignal,
 ): Promise<TokenValidationState> {
@@ -137,7 +140,7 @@ function OptionsPage() {
 
   const trimmedToken = () => token().trim();
   const hasTokenInput = () => trimmedToken() !== "";
-  const hasValidTokenInput = () => GITHUB_FINE_GRAINED_TOKEN_PATTERN.test(trimmedToken());
+  const hasValidTokenInput = () => GITHUB_PERSONAL_ACCESS_TOKEN_PATTERN.test(trimmedToken());
   const hasInvalidTokenInput = () => {
     const validation = tokenValidation();
     return hasTokenInput() && (!hasValidTokenInput() || validation.kind === "invalid");
@@ -152,8 +155,8 @@ function OptionsPage() {
   };
 
   onMount(async () => {
-    const stored = await browser.storage.local.get(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
-    const savedToken = stored[GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY];
+    const stored = await browser.storage.local.get(GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY);
+    const savedToken = stored[GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY];
     setHasSavedToken(typeof savedToken === "string" && savedToken.trim() !== "");
   });
 
@@ -170,7 +173,7 @@ function OptionsPage() {
     const abortController = new AbortController();
     const timeoutId = window.setTimeout(async () => {
       try {
-        const validation = await validateGitHubFineGrainedToken(
+        const validation = await validateGitHubPersonalAccessToken(
           currentToken,
           abortController.signal,
         );
@@ -210,7 +213,7 @@ function OptionsPage() {
 
     try {
       await browser.storage.local.set({
-        [GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY]: trimmedToken(),
+        [GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY]: trimmedToken(),
       });
       setToken("");
       setHasSavedToken(true);
@@ -224,7 +227,7 @@ function OptionsPage() {
     setIsSaving(true);
 
     try {
-      await browser.storage.local.remove(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
+      await browser.storage.local.remove(GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY);
       setToken("");
       setHasSavedToken(false);
       setStatusMessage("Token removed.");
@@ -238,24 +241,31 @@ function OptionsPage() {
     <main class="ghff-options">
       <div class="ghff-options__card">
         <h1 class="ghff-options__title">Fast-forward merge for GitHub</h1>
-        <p class="ghff-options__lead">
-          Save a GitHub fine-grained personal access token to enable authenticated API requests and
-          fast-forward merge actions.
+        <p class="ghff-options__lead">This extension requires a GitHub token to work!</p>
+        <p class="ghff-options__link-row">
+          <a
+            class="ghff-options__link"
+            href={GITHUB_CLASSIC_PERSONAL_ACCESS_TOKEN_CREATION_URL}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Create a classic token (recommended)
+          </a>
         </p>
         <p class="ghff-options__link-row">
           <a
             class="ghff-options__link"
-            href={GITHUB_FINE_GRAINED_TOKEN_CREATION_URL}
+            href={GITHUB_FINE_GRAINED_PERSONAL_ACCESS_TOKEN_CREATION_URL}
             target="_blank"
             rel="noreferrer"
           >
-            Create a fine-grained token on GitHub
+            Create a fine-grained token (if classic tokens are unavailable)
           </a>
         </p>
 
         <form class="ghff-options__form" onSubmit={saveToken}>
           <label class="ghff-options__label" for="github-token">
-            Fine-grained personal access token
+            Personal access token
           </label>
           <input
             id="github-token"
@@ -268,10 +278,10 @@ function OptionsPage() {
               setToken(sanitizedToken);
               setStatusMessage("");
             }}
-            placeholder="github_pat_..."
+            placeholder="ghp_... or github_pat_..."
             spellcheck={false}
             autocomplete="off"
-            maxLength={GITHUB_FINE_GRAINED_TOKEN_MAX_LENGTH}
+            maxLength={GITHUB_PERSONAL_ACCESS_TOKEN_MAX_LENGTH}
             aria-invalid={hasInvalidTokenInput()}
           />
           <Show when={hasTokenInput() && !hasValidTokenInput()}>

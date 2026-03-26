@@ -1,6 +1,6 @@
 export const GET_PULL_REQUEST_STATUS = "ghff:get-pull-request-status";
 export const MERGE_PULL_REQUEST = "ghff:merge-pull-request";
-export const GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY = "ghff:github-fine-grained-token";
+export const GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY = "ghff:github-personal-access-token";
 
 export type PullRequestStatusRequest = {
   type: typeof GET_PULL_REQUEST_STATUS;
@@ -18,7 +18,7 @@ export type MergePullRequestRequest = {
 
 export type PullRequestStatusResult = {
   aheadBy: number;
-  hasGitHubFineGrainedToken: boolean;
+  hasGitHubPersonalAccessToken: boolean;
   status:
     | "ff-possible"
     | "up-to-date"

@@ -1,7 +1,7 @@
 import { browser } from "wxt/browser";
 
 import {
-  GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY,
+  GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY,
   GET_PULL_REQUEST_STATUS,
   MERGE_PULL_REQUEST,
   type MergePullRequestRequest,
@@ -140,8 +140,8 @@ async function getPullRequestStatus({
   repo,
   pullNumber,
 }: PullRequestStatusRequest): Promise<PullRequestStatusResult> {
-  const token = await getGitHubFineGrainedToken();
-  const hasGitHubFineGrainedToken = token.trim() !== "";
+  const token = await getGitHubPersonalAccessToken();
+  const hasGitHubPersonalAccessToken = token.trim() !== "";
 
   // Pull request metadata gives us the current base/head refs and SHAs that
   // GitHub is comparing on the page.
@@ -158,7 +158,7 @@ async function getPullRequestStatus({
 
   if (state !== "open") {
     return {
-      hasGitHubFineGrainedToken,
+      hasGitHubPersonalAccessToken,
       status: "closed",
       aheadBy: 0,
     };
@@ -168,7 +168,7 @@ async function getPullRequestStatus({
   // surfaces status for same-repository pull requests.
   if (!baseRepository || !headRepository || baseRepository !== headRepository) {
     return {
-      hasGitHubFineGrainedToken,
+      hasGitHubPersonalAccessToken,
       status: "cross-repository",
       aheadBy: 0,
     };
@@ -181,7 +181,7 @@ async function getPullRequestStatus({
 
   return {
     aheadBy: comparison.ahead_by ?? 0,
-    hasGitHubFineGrainedToken,
+    hasGitHubPersonalAccessToken,
 
     // GitHub's compare API already tells us the ancestry relationship, so map it
     // directly to the UI states used by the content script.
@@ -203,7 +203,7 @@ async function mergePullRequest({
   repo,
   pullNumber,
 }: MergePullRequestRequest): Promise<void> {
-  const token = await getGitHubFineGrainedToken();
+  const token = await getGitHubPersonalAccessToken();
   if (token.trim() === "") {
     throw new Error("No GitHub token is saved.");
   }
@@ -364,9 +364,9 @@ function encodeGitReference(reference: string) {
   return reference.split("/").map(encodeURIComponent).join("/");
 }
 
-async function getGitHubFineGrainedToken(): Promise<string> {
-  const stored = await browser.storage.local.get(GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY);
-  const token = stored[GITHUB_FINE_GRAINED_TOKEN_STORAGE_KEY];
+async function getGitHubPersonalAccessToken(): Promise<string> {
+  const stored = await browser.storage.local.get(GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY);
+  const token = stored[GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY];
   return typeof token === "string" ? token : "";
 }
 

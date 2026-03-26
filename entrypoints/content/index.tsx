@@ -216,7 +216,7 @@ async function refresh(
   }
   // Ensure the root is mounted properly
   if (mountTarget.nextElementSibling !== root) {
-    mountTarget.insertAdjacentElement("afterend", root);
+    mountTarget.insertAdjacentElement("beforeend", root);
   }
 
   const cached = pageState.cache.get(signature);

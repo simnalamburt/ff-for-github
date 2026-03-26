@@ -152,7 +152,7 @@ async function getPullRequestStatus({
 
   const baseRepository = pullRequest.base?.repo?.full_name as string | undefined;
   const headRepository = pullRequest.head?.repo?.full_name as string | undefined;
-  const baseSha = pullRequest.base?.sha ?? "";
+  const baseRef = pullRequest.base?.ref ?? "";
   const headSha = pullRequest.head?.sha ?? "";
   const state = pullRequest.state ?? "open";
 
@@ -175,7 +175,7 @@ async function getPullRequestStatus({
   }
 
   const comparison = await githubRequest<GitHubCompareResponse>(
-    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseSha)}...${encodeURIComponent(headSha)}`,
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(headSha)}`,
     token,
   );
 
@@ -216,7 +216,6 @@ async function mergePullRequest({
   const baseRepository = pullRequest.base?.repo?.full_name ?? "";
   const headRepository = pullRequest.head?.repo?.full_name ?? "";
   const baseRef = pullRequest.base?.ref ?? "";
-  const baseSha = pullRequest.base?.sha ?? "";
   const headSha = pullRequest.head?.sha ?? "";
   const state = pullRequest.state ?? "open";
 
@@ -228,12 +227,12 @@ async function mergePullRequest({
     throw new Error("Fast-forward merge is only supported for same-repository pull requests.");
   }
 
-  if (!baseRef || !baseSha || !headSha) {
+  if (!baseRef || !headSha) {
     throw new Error("Could not determine the pull request branch heads.");
   }
 
   const comparison = await githubRequest<GitHubCompareResponse>(
-    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseSha)}...${encodeURIComponent(headSha)}`,
+    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(headSha)}`,
     token,
   );
 

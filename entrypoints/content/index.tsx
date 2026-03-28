@@ -75,6 +75,13 @@ const StatusCard: Component<{
           detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
           action: props.state.result.hasGitHubPersonalAccessToken,
         };
+      case "ff-possible-but-closed":
+        return {
+          tone: "error",
+          title: "Fast-forward merge possible, but the pull request is not open",
+          detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
+          action: props.state.result.hasGitHubPersonalAccessToken,
+        };
       case "up-to-date":
         return {
           tone: "muted",

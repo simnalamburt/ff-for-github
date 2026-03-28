@@ -155,8 +155,10 @@ async function getPullRequestStatus({
   const baseRef = pullRequest.base?.ref ?? "";
   const headSha = pullRequest.head?.sha ?? "";
   const state = pullRequest.state ?? "open";
+  const isSameRepository =
+    !!baseRepository && !!headRepository && baseRepository === headRepository;
 
-  if (state !== "open") {
+  if (state !== "open" && (!isSameRepository || !baseRef || !headSha)) {
     return {
       hasGitHubPersonalAccessToken,
       status: "closed",
@@ -166,7 +168,7 @@ async function getPullRequestStatus({
 
   // The merge action updates the base ref in place, so this extension only
   // surfaces status for same-repository pull requests.
-  if (!baseRepository || !headRepository || baseRepository !== headRepository) {
+  if (!isSameRepository) {
     return {
       hasGitHubPersonalAccessToken,
       status: "cross-repository",
@@ -178,6 +180,14 @@ async function getPullRequestStatus({
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(headSha)}`,
     token,
   );
+
+  if (state !== "open") {
+    return {
+      aheadBy: comparison.ahead_by ?? 0,
+      hasGitHubPersonalAccessToken,
+      status: comparison.status === "ahead" ? "ff-possible-but-closed" : "closed",
+    };
+  }
 
   return {
     aheadBy: comparison.ahead_by ?? 0,
@@ -217,11 +227,6 @@ async function mergePullRequest({
   const headRepository = pullRequest.head?.repo?.full_name ?? "";
   const baseRef = pullRequest.base?.ref ?? "";
   const headSha = pullRequest.head?.sha ?? "";
-  const state = pullRequest.state ?? "open";
-
-  if (state !== "open") {
-    throw new Error("Pull request is not open.");
-  }
 
   if (!baseRepository || !headRepository || baseRepository !== headRepository) {
     throw new Error("Fast-forward merge is only supported for same-repository pull requests.");

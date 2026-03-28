@@ -21,6 +21,7 @@ export type PullRequestStatusResult = {
   hasGitHubPersonalAccessToken: boolean;
   status:
     | "ff-possible"
+    | "ff-possible-but-closed"
     | "up-to-date"
     | "cross-repository"
     | "base-ahead"

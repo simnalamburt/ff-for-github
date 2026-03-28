@@ -67,4 +67,12 @@
       opacity: 0.7;
     }
   }
+
+  &[data-tone="error"] > button {
+    background: var(--button-danger-bgColor-rest, #cf222e);
+
+    &:hover {
+      background: var(--button-danger-bgColor-hover, #a40e26);
+    }
+  }
 }

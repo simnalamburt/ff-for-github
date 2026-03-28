@@ -29,7 +29,6 @@ export type PullRequestStatusResult = {
     | "ff-possible-but-closed"
     | "ff-possible-but-draft"
     | "up-to-date"
-    | "cross-repository"
     | "base-ahead"
     | "diverged"
     | "closed"

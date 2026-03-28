@@ -160,29 +160,15 @@ async function getPullRequestStatus({
     token,
   );
 
-  const baseRepository = pullRequest.base?.repo?.full_name as string | undefined;
-  const headRepository = pullRequest.head?.repo?.full_name as string | undefined;
   const baseRef = pullRequest.base?.ref ?? "";
   const headSha = pullRequest.head?.sha ?? "";
   const isDraft = pullRequest.draft === true;
   const state = pullRequest.state ?? "open";
-  const isSameRepository =
-    !!baseRepository && !!headRepository && baseRepository === headRepository;
 
-  if (state !== "open" && (!isSameRepository || !baseRef || !headSha)) {
+  if (!baseRef || !headSha) {
     return {
       hasGitHubPersonalAccessToken,
-      status: "closed",
-      aheadBy: 0,
-    };
-  }
-
-  // The merge action updates the base ref in place, so this extension only
-  // surfaces status for same-repository pull requests.
-  if (!isSameRepository) {
-    return {
-      hasGitHubPersonalAccessToken,
-      status: "cross-repository",
+      status: state !== "open" ? "closed" : "unknown",
       aheadBy: 0,
     };
   }
@@ -229,14 +215,8 @@ async function mergePullRequest({
     token,
   );
 
-  const baseRepository = pullRequest.base?.repo?.full_name ?? "";
-  const headRepository = pullRequest.head?.repo?.full_name ?? "";
   const baseRef = pullRequest.base?.ref ?? "";
   const headSha = pullRequest.head?.sha ?? "";
-
-  if (!baseRepository || !headRepository || baseRepository !== headRepository) {
-    throw new Error("Fast-forward merge is only supported for same-repository pull requests.");
-  }
 
   if (!baseRef || !headSha) {
     throw new Error("Could not determine the pull request branch heads.");

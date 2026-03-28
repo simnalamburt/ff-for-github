@@ -9,8 +9,6 @@ without opening a terminal!
   <img alt="Fast-forward merge for GitHub screenshot" src="https://i.hyeon.me/ff-for-github/light.avif">
 </picture>
 
-Current known limitations: The check only supports same-repository pull requests.
-
 &nbsp;
 
 ---

@@ -69,37 +69,36 @@ const StatusCard: Component<{
       };
     }
 
+    const formatStatusDetail = (aheadBy: number) =>
+      `${aheadBy} commit${aheadBy === 1 ? "" : "s"} ahead`;
+    const action = props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options";
+
     switch (props.state.result.status) {
       case "ff-possible":
         return {
           tone: "success",
           title: "Fast-forward merge possible",
-          detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options",
+          detail: formatStatusDetail(props.state.result.aheadBy),
+          action,
         };
       case "ff-possible-but-closed":
         return {
           tone: "error",
           title: "Fast-forward merge possible, but the pull request is not open",
-          detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options",
+          detail: formatStatusDetail(props.state.result.aheadBy),
+          action,
         };
       case "ff-possible-but-draft":
         return {
           tone: "error",
           title: "Fast-forward merge possible, but the pull request is a draft",
-          detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options",
+          detail: formatStatusDetail(props.state.result.aheadBy),
+          action,
         };
       case "up-to-date":
         return {
           tone: "muted",
           title: "Already up to date",
-        };
-      case "cross-repository":
-        return {
-          tone: "muted",
-          title: "Fast-forward merge not supported",
         };
       case "base-ahead":
       case "diverged":

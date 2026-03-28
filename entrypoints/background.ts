@@ -1,3 +1,4 @@
+import * as v from "valibot";
 import { browser } from "wxt/browser";
 
 import {
@@ -7,7 +8,6 @@ import {
   OPEN_OPTIONS_PAGE,
   type MergePullRequestRequest,
   type MergePullRequestResponse,
-  type OpenOptionsPageRequest,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
@@ -40,6 +40,21 @@ type RuntimeMessageSender = {
 };
 
 const GITHUB_PULL_REQUEST_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
+const PullRequestStatusRequestSchema = v.object({
+  type: v.literal(GET_PULL_REQUEST_STATUS),
+  owner: v.string(),
+  repo: v.string(),
+  pullNumber: v.number(),
+});
+const MergePullRequestRequestSchema = v.object({
+  type: v.literal(MERGE_PULL_REQUEST),
+  owner: v.string(),
+  repo: v.string(),
+  pullNumber: v.number(),
+});
+const OpenOptionsPageRequestSchema = v.object({
+  type: v.literal(OPEN_OPTIONS_PAGE),
+});
 
 export default defineBackground(() => {
   // The background worker is the single place that talks to the GitHub API.
@@ -48,7 +63,7 @@ export default defineBackground(() => {
 
   if (typeof chrome !== "undefined") {
     chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) => {
-      if (isPullRequestStatusRequest(message)) {
+      if (v.is(PullRequestStatusRequestSchema, message)) {
         void getPullRequestStatusResponse(message, sender).then(sendResponse);
 
         // Chrome extension messaging keeps the channel open only when the listener
@@ -56,7 +71,7 @@ export default defineBackground(() => {
         return true;
       }
 
-      if (isMergePullRequestRequest(message)) {
+      if (v.is(MergePullRequestRequestSchema, message)) {
         void mergePullRequestResponse(message, sender).then(sendResponse);
 
         // Chrome extension messaging keeps the channel open only when the listener
@@ -64,7 +79,7 @@ export default defineBackground(() => {
         return true;
       }
 
-      if (isOpenOptionsPageRequest(message)) {
+      if (v.is(OpenOptionsPageRequestSchema, message)) {
         void openOptionsPage().then(sendResponse);
 
         // Chrome extension messaging keeps the channel open only when the listener
@@ -78,54 +93,21 @@ export default defineBackground(() => {
   }
 
   browser.runtime.onMessage.addListener((message: unknown, sender) => {
-    if (isPullRequestStatusRequest(message)) {
+    if (v.is(PullRequestStatusRequestSchema, message)) {
       return getPullRequestStatusResponse(message, sender as RuntimeMessageSender);
     }
 
-    if (isMergePullRequestRequest(message)) {
+    if (v.is(MergePullRequestRequestSchema, message)) {
       return mergePullRequestResponse(message, sender as RuntimeMessageSender);
     }
 
-    if (isOpenOptionsPageRequest(message)) {
+    if (v.is(OpenOptionsPageRequestSchema, message)) {
       return openOptionsPage();
     }
 
     return undefined;
   });
 });
-
-function isPullRequestStatusRequest(message: unknown): message is PullRequestStatusRequest {
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    "type" in message &&
-    "owner" in message &&
-    "repo" in message &&
-    "pullNumber" in message &&
-    (message as { type?: unknown }).type === GET_PULL_REQUEST_STATUS
-  );
-}
-
-function isMergePullRequestRequest(message: unknown): message is MergePullRequestRequest {
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    "type" in message &&
-    "owner" in message &&
-    "repo" in message &&
-    "pullNumber" in message &&
-    (message as { type?: unknown }).type === MERGE_PULL_REQUEST
-  );
-}
-
-function isOpenOptionsPageRequest(message: unknown): message is OpenOptionsPageRequest {
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    "type" in message &&
-    (message as { type?: unknown }).type === OPEN_OPTIONS_PAGE
-  );
-}
 
 async function getPullRequestStatusResponse(
   request: PullRequestStatusRequest,

@@ -182,40 +182,27 @@ async function getPullRequestStatus({
     `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(headSha)}`,
     token,
   );
-
-  if (state !== "open") {
-    return {
-      aheadBy: comparison.ahead_by ?? 0,
-      hasGitHubPersonalAccessToken,
-      status: comparison.status === "ahead" ? "ff-possible-but-closed" : "closed",
-    };
-  }
-
-  if (isDraft && comparison.status === "ahead") {
-    return {
-      aheadBy: comparison.ahead_by ?? 0,
-      hasGitHubPersonalAccessToken,
-      status: "ff-possible-but-draft",
-    };
-  }
-
-  return {
-    aheadBy: comparison.ahead_by ?? 0,
-    hasGitHubPersonalAccessToken,
-
+  const aheadBy = comparison.ahead_by ?? 0;
+  const status = (() => {
+    if (state !== "open") {
+      return comparison.status === "ahead" ? "ff-possible-but-closed" : "closed";
+    }
     // GitHub's compare API already tells us the ancestry relationship, so map it
     // directly to the UI states used by the content script.
-    status:
-      comparison.status == "ahead"
-        ? "ff-possible"
-        : comparison.status == "identical"
-          ? "up-to-date"
-          : comparison.status == "behind"
-            ? "base-ahead"
-            : comparison.status == "diverged"
-              ? "diverged"
-              : "unknown",
-  };
+    switch (comparison.status) {
+      case "ahead":
+        return isDraft ? "ff-possible-but-draft" : "ff-possible";
+      case "identical":
+        return "up-to-date";
+      case "behind":
+        return "base-ahead";
+      case "diverged":
+        return "diverged";
+      default:
+        return "unknown";
+    }
+  })();
+  return { aheadBy, hasGitHubPersonalAccessToken, status };
 }
 
 async function mergePullRequest({

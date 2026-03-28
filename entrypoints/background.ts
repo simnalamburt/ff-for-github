@@ -4,8 +4,10 @@ import {
   GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY,
   GET_PULL_REQUEST_STATUS,
   MERGE_PULL_REQUEST,
+  OPEN_OPTIONS_PAGE,
   type MergePullRequestRequest,
   type MergePullRequestResponse,
+  type OpenOptionsPageRequest,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
@@ -62,6 +64,14 @@ export default defineBackground(() => {
         return true;
       }
 
+      if (isOpenOptionsPageRequest(message)) {
+        void openOptionsPage().then(sendResponse);
+
+        // Chrome extension messaging keeps the channel open only when the listener
+        // returns true and replies through sendResponse asynchronously.
+        return true;
+      }
+
       return undefined;
     });
     return;
@@ -74,6 +84,10 @@ export default defineBackground(() => {
 
     if (isMergePullRequestRequest(message)) {
       return mergePullRequestResponse(message, sender as RuntimeMessageSender);
+    }
+
+    if (isOpenOptionsPageRequest(message)) {
+      return openOptionsPage();
     }
 
     return undefined;
@@ -101,6 +115,15 @@ function isMergePullRequestRequest(message: unknown): message is MergePullReques
     "repo" in message &&
     "pullNumber" in message &&
     (message as { type?: unknown }).type === MERGE_PULL_REQUEST
+  );
+}
+
+function isOpenOptionsPageRequest(message: unknown): message is OpenOptionsPageRequest {
+  return (
+    typeof message === "object" &&
+    message !== null &&
+    "type" in message &&
+    (message as { type?: unknown }).type === OPEN_OPTIONS_PAGE
   );
 }
 
@@ -134,6 +157,10 @@ async function mergePullRequestResponse(
       error: { message: error instanceof Error ? error.message : String(error) },
     };
   }
+}
+
+async function openOptionsPage(): Promise<void> {
+  await browser.runtime.openOptionsPage();
 }
 
 async function getPullRequestStatus({

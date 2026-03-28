@@ -8,6 +8,8 @@ import {
   MERGE_PULL_REQUEST,
   type MergePullRequestRequest,
   type MergePullRequestResponse,
+  OPEN_OPTIONS_PAGE,
+  type OpenOptionsPageRequest,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
   type PullRequestStatusResult,
@@ -49,7 +51,7 @@ const StatusCard: Component<{
     tone: "loading" | "success" | "muted" | "error";
     title: string;
     detail?: string;
-    action?: boolean;
+    action?: "merge" | "open-options";
   };
   const presentation = createMemo<StatusCardPresentation>(() => {
     if (props.state.kind === "loading") {
@@ -73,21 +75,21 @@ const StatusCard: Component<{
           tone: "success",
           title: "Fast-forward merge possible",
           detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.result.hasGitHubPersonalAccessToken,
+          action: props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options",
         };
       case "ff-possible-but-closed":
         return {
           tone: "error",
           title: "Fast-forward merge possible, but the pull request is not open",
           detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.result.hasGitHubPersonalAccessToken,
+          action: props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options",
         };
       case "ff-possible-but-draft":
         return {
           tone: "error",
           title: "Fast-forward merge possible, but the pull request is a draft",
           detail: `${props.state.result.aheadBy} commit${props.state.result.aheadBy === 1 ? "" : "s"} ahead`,
-          action: props.state.result.hasGitHubPersonalAccessToken,
+          action: props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options",
         };
       case "up-to-date":
         return {
@@ -130,13 +132,25 @@ const StatusCard: Component<{
           {props.mergeState.kind === "error" ? props.mergeState.message : ""}
         </div>
       </Show>
-      <Show when={presentation().action}>
+      <Show when={presentation().action === "merge"}>
         <button
           type="button"
           onClick={() => props.onMerge()}
           disabled={props.mergeState.kind === "submitting"}
         >
           {props.mergeState.kind === "submitting" ? "Fast-forwarding..." : "Fast-forward merge"}
+        </button>
+      </Show>
+      <Show when={presentation().action === "open-options"}>
+        <button
+          type="button"
+          onClick={async () => {
+            await browser.runtime.sendMessage({
+              type: OPEN_OPTIONS_PAGE,
+            } satisfies OpenOptionsPageRequest);
+          }}
+        >
+          Set up GitHub token
         </button>
       </Show>
     </article>

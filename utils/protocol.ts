@@ -1,5 +1,6 @@
 export const GET_PULL_REQUEST_STATUS = "ghff:get-pull-request-status";
 export const MERGE_PULL_REQUEST = "ghff:merge-pull-request";
+export const OPEN_OPTIONS_PAGE = "ghff:open-options-page";
 export const GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY = "ghff:github-personal-access-token";
 
 export type PullRequestStatusRequest = {
@@ -14,6 +15,10 @@ export type MergePullRequestRequest = {
   owner: string;
   repo: string;
   pullNumber: number;
+};
+
+export type OpenOptionsPageRequest = {
+  type: typeof OPEN_OPTIONS_PAGE;
 };
 
 export type PullRequestStatusResult = {

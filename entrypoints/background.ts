@@ -21,6 +21,7 @@ type GitHubBranchReference = {
 
 type GitHubPullRequestResponse = {
   base?: GitHubBranchReference;
+  draft?: boolean;
   head?: GitHubBranchReference;
   state?: string;
 };
@@ -154,6 +155,7 @@ async function getPullRequestStatus({
   const headRepository = pullRequest.head?.repo?.full_name as string | undefined;
   const baseRef = pullRequest.base?.ref ?? "";
   const headSha = pullRequest.head?.sha ?? "";
+  const isDraft = pullRequest.draft === true;
   const state = pullRequest.state ?? "open";
   const isSameRepository =
     !!baseRepository && !!headRepository && baseRepository === headRepository;
@@ -186,6 +188,14 @@ async function getPullRequestStatus({
       aheadBy: comparison.ahead_by ?? 0,
       hasGitHubPersonalAccessToken,
       status: comparison.status === "ahead" ? "ff-possible-but-closed" : "closed",
+    };
+  }
+
+  if (isDraft && comparison.status === "ahead") {
+    return {
+      aheadBy: comparison.ahead_by ?? 0,
+      hasGitHubPersonalAccessToken,
+      status: "ff-possible-but-draft",
     };
   }
 

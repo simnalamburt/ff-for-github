@@ -22,6 +22,7 @@ export type PullRequestStatusResult = {
   status:
     | "ff-possible"
     | "ff-possible-but-closed"
+    | "ff-possible-but-draft"
     | "up-to-date"
     | "cross-repository"
     | "base-ahead"

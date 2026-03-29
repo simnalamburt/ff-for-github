@@ -151,6 +151,29 @@ No, I am not using remote code.
 > You must certify all three disclosures to comply
 > with our [Developer Program Policies]
 
+## Test instructions
+
+> Help us review your extension's core functionality by providing test
+> instructions if login, authentication, or specific setup is required. Enter
+> any necessary test account credentials and steps below. The information
+> provided in this form will be shared with the Chrome Web Store team.
+>
+> Providing these details is essential for a complete evaluation and is required
+> to qualify for the Featured badge if your extension's main features are gated
+> behind a login. All information provided is confidential and used solely for
+> review purposes.
+
+No account is required to test status checks. Install the extension, then open
+`https://github.com/simnalamburt/github-ff-merge-test/pull/10` and confirm the
+sidebar card says fast-forward merge is possible. Then open
+`https://github.com/simnalamburt/github-ff-merge-test/pull/3` and confirm the
+card says fast-forward merge is not possible. To test the merge action itself,
+save a valid GitHub Personal Access Token in the extension options.
+
+> Provide any instructions required to access core extension functionality if
+> additional setup is required beyond entering the provided username and
+> password
+
 [permission]: https://developer.chrome.com/docs/extensions/develop/concepts/declare-permissions
 [match pattern]: https://developer.chrome.com/docs/extensions/develop/concepts/match-patterns
 [FAQ]: https://developer.chrome.com/docs/webstore/program-policies/user-data-faq

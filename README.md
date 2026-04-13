@@ -29,6 +29,31 @@ used solely to call the following APIs:
 
 For more details, please refer to [PRIVACY.md].
 
+### Features
+
+<table>
+  <tr>
+    <th>Fast-forward merge PRs</th>
+    <th>Fast-forward merge arbitrary branches/tags/refs</th>
+  </tr>
+  <tr>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://i.hyeon.me/ff-for-github/dark.avif">
+        <source media="(prefers-color-scheme: light)" srcset="https://i.hyeon.me/ff-for-github/light.avif">
+        <img alt="Fast-forward merge for GitHub screenshot" src="https://i.hyeon.me/ff-for-github/light.avif">
+      </picture>
+    </td>
+    <td>
+      <picture>
+        <source media="(prefers-color-scheme: dark)" srcset="https://i.hyeon.me/ff-for-github/dark-comparison.avif">
+        <source media="(prefers-color-scheme: light)" srcset="https://i.hyeon.me/ff-for-github/light-comparison.avif">
+        <img alt="Fast-forward merge for GitHub screenshot" src="https://i.hyeon.me/ff-for-github/light-comparison.avif">
+      </picture>
+    </td>
+  </tr>
+</table>
+
 &nbsp;
 
 ---

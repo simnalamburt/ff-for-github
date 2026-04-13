@@ -1,6 +1,6 @@
 {
   "name": "ff-for-github",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Shows whether a GitHub pull request or comparison can be fast-forward merged.",
   "type": "module",

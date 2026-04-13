@@ -4,11 +4,18 @@ import { browser } from "wxt/browser";
 
 import "./style.css";
 import {
+  GET_COMPARISON_STATUS,
   GET_PULL_REQUEST_STATUS,
+  MERGE_COMPARISON,
   MERGE_PULL_REQUEST,
+  OPEN_OPTIONS_PAGE,
+  type ComparisonStatusRequest,
+  type ComparisonStatusResponse,
+  type ComparisonStatusResult,
+  type MergeComparisonRequest,
+  type MergeComparisonResponse,
   type MergePullRequestRequest,
   type MergePullRequestResponse,
-  OPEN_OPTIONS_PAGE,
   type OpenOptionsPageRequest,
   type PullRequestStatusRequest,
   type PullRequestStatusResponse,
@@ -19,109 +26,105 @@ const ROOT_ID = "ghff-root";
 const PAGE_CACHE_TTL_MS = 30_000;
 const URL_CHECK_INTERVAL_MS = 750;
 const PR_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
+const COMPARE_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/compare\/([^/]+)(?:\/.*)?$/;
 
-// GitHub swaps PR pages with Turbo/PJAX, so the content script has to keep
-// enough state to debounce refreshes and ignore stale async responses.
+type PageKind = "pull-request" | "compare";
+type StatusResult = PullRequestStatusResult | ComparisonStatusResult;
+type RouteLocator =
+  | {
+      kind: "pull-request";
+      pageKind: PageKind;
+      owner: string;
+      repo: string;
+      pullNumber: number;
+      signature: string;
+      optimisticStatusAfterMerge: "closed";
+    }
+  | {
+      kind: "compare";
+      pageKind: PageKind;
+      owner: string;
+      repo: string;
+      base: string;
+      head: string;
+      signature: string;
+      optimisticStatusAfterMerge: "up-to-date";
+    };
+type MountInstruction =
+  | { kind: "append"; element: HTMLElement }
+  | { kind: "before"; element: HTMLElement };
+type OptimisticStatus = {
+  expectedStatus: StatusResult["status"];
+  until: number;
+};
+
+// GitHub swaps pages with Turbo/PJAX, so the content script keeps a small
+// amount of page-scoped state to debounce refreshes and ignore stale responses.
 const pageState = {
-  cache: new Map<string, { cachedAt: number; result: PullRequestStatusResult }>(),
+  cache: new Map<string, { cachedAt: number; result: StatusResult }>(),
   currentPath: "",
-  optimisticClosedUntil: new Map<string, number>(),
+  optimisticStatuses: new Map<string, OptimisticStatus>(),
   pendingKey: null as string | null,
   requestId: 0,
   scheduled: false,
 };
 
-type StatusCardState =
+type StatusViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "loaded"; result: PullRequestStatusResult };
+  | { kind: "loaded"; result: StatusResult };
 
 type MergeState = { kind: "idle" } | { kind: "submitting" } | { kind: "error"; message: string };
 type RefreshOptions = {
   bypassCache?: boolean;
   preserveState?: boolean;
 };
+type StatusPresentation = {
+  tone: "loading" | "success" | "muted" | "error";
+  title: string;
+  detail?: string;
+  action?: "merge" | "open-options";
+};
+
+const StatusActionButton: Component<{
+  action?: StatusPresentation["action"];
+  mergeState: MergeState;
+  onMerge: () => void;
+}> = (props) => (
+  <>
+    <Show when={props.action === "merge"}>
+      <button
+        type="button"
+        onClick={() => props.onMerge()}
+        disabled={props.mergeState.kind === "submitting"}
+      >
+        {props.mergeState.kind === "submitting" ? "Fast-forwarding..." : "Fast-forward merge"}
+      </button>
+    </Show>
+    <Show when={props.action === "open-options"}>
+      <button
+        type="button"
+        onClick={async () => {
+          await browser.runtime.sendMessage({
+            type: OPEN_OPTIONS_PAGE,
+          } satisfies OpenOptionsPageRequest);
+        }}
+      >
+        Set up GitHub token
+      </button>
+    </Show>
+  </>
+);
 
 const StatusCard: Component<{
-  state: StatusCardState;
+  state: StatusViewState;
   mergeState: MergeState;
   onMerge: () => void;
 }> = (props) => {
-  type StatusCardPresentation = {
-    tone: "loading" | "success" | "muted" | "error";
-    title: string;
-    detail?: string;
-    action?: "merge" | "open-options";
-  };
-  const presentation = createMemo<StatusCardPresentation>(() => {
-    if (props.state.kind === "loading") {
-      return {
-        tone: "loading",
-        title: "Checking fast-forward status",
-      };
-    }
-
-    if (props.state.kind === "error") {
-      return {
-        tone: "error",
-        title: "Fast-forward status unavailable",
-        detail: props.state.message,
-      };
-    }
-
-    const formatStatusDetail = (aheadBy: number) =>
-      `${aheadBy} commit${aheadBy === 1 ? "" : "s"} ahead`;
-    const action = props.state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options";
-
-    switch (props.state.result.status) {
-      case "ff-possible":
-        return {
-          tone: "success",
-          title: "Fast-forward merge possible",
-          detail: formatStatusDetail(props.state.result.aheadBy),
-          action,
-        };
-      case "ff-possible-but-closed":
-        return {
-          tone: "error",
-          title: "Fast-forward merge possible, but the pull request is not open",
-          detail: formatStatusDetail(props.state.result.aheadBy),
-          action,
-        };
-      case "ff-possible-but-draft":
-        return {
-          tone: "error",
-          title: "Fast-forward merge possible, but the pull request is a draft",
-          detail: formatStatusDetail(props.state.result.aheadBy),
-          action,
-        };
-      case "up-to-date":
-        return {
-          tone: "muted",
-          title: "Already up to date",
-        };
-      case "base-ahead":
-      case "diverged":
-        return {
-          tone: "muted",
-          title: "Fast-forward merge not possible",
-        };
-      case "closed":
-        return {
-          tone: "muted",
-          title: "Pull request is not open",
-        };
-      case "unknown":
-        return {
-          tone: "error",
-          title: "Fast-forward status unavailable",
-          detail: "GitHub did not return a comparison state this extension understands.",
-        };
-    }
-  });
+  const presentation = createMemo(() => getStatusPresentation(props.state));
 
   return (
-    <article data-tone={presentation().tone}>
+    <article class="ghff-card" data-tone={presentation().tone}>
       <div class="ghff-title">{presentation().title}</div>
       <Show when={presentation().detail}>
         <div class="ghff-detail">{presentation().detail}</div>
@@ -131,33 +134,78 @@ const StatusCard: Component<{
           {props.mergeState.kind === "error" ? props.mergeState.message : ""}
         </div>
       </Show>
-      <Show when={presentation().action === "merge"}>
-        <button
-          type="button"
-          onClick={() => props.onMerge()}
-          disabled={props.mergeState.kind === "submitting"}
-        >
-          {props.mergeState.kind === "submitting" ? "Fast-forwarding..." : "Fast-forward merge"}
-        </button>
-      </Show>
-      <Show when={presentation().action === "open-options"}>
-        <button
-          type="button"
-          onClick={async () => {
-            await browser.runtime.sendMessage({
-              type: OPEN_OPTIONS_PAGE,
-            } satisfies OpenOptionsPageRequest);
-          }}
-        >
-          Set up GitHub token
-        </button>
+      <StatusActionButton
+        action={presentation().action}
+        mergeState={props.mergeState}
+        onMerge={props.onMerge}
+      />
+    </article>
+  );
+};
+
+const ComparisonBanner: Component<{
+  state: StatusViewState;
+  mergeState: MergeState;
+  onMerge: () => void;
+}> = (props) => {
+  const presentation = createMemo(() => getStatusPresentation(props.state));
+
+  return (
+    <article class="ghff-compare-banner" data-tone={presentation().tone}>
+      <div class="ghff-compare-banner__copy">
+        <div class="ghff-title">{presentation().title}</div>
+        <Show when={presentation().detail}>
+          <div class="ghff-detail">{presentation().detail}</div>
+        </Show>
+        <Show when={props.mergeState.kind === "error"}>
+          <div class="ghff-detail ghff-detail--error">
+            {props.mergeState.kind === "error" ? props.mergeState.message : ""}
+          </div>
+        </Show>
+      </div>
+      <Show when={presentation().action}>
+        <div class="ghff-compare-banner__actions">
+          <StatusActionButton
+            action={presentation().action}
+            mergeState={props.mergeState}
+            onMerge={props.onMerge}
+          />
+        </div>
       </Show>
     </article>
   );
 };
 
+const RootView: Component<{
+  pageKind: () => PageKind | null;
+  state: () => StatusViewState;
+  mergeState: () => MergeState;
+  onMerge: () => void;
+}> = (props) => (
+  <Show when={props.pageKind()}>
+    {(currentPageKind) => (
+      <Show
+        when={currentPageKind() === "compare"}
+        fallback={
+          <StatusCard
+            state={props.state()}
+            mergeState={props.mergeState()}
+            onMerge={props.onMerge}
+          />
+        }
+      >
+        <ComparisonBanner
+          state={props.state()}
+          mergeState={props.mergeState()}
+          onMerge={props.onMerge}
+        />
+      </Show>
+    )}
+  </Show>
+);
+
 export default defineContentScript({
-  matches: ["https://github.com/*/*/pull/*"],
+  matches: ["https://github.com/*/*/pull/*", "https://github.com/*/*/compare/*"],
   runAt: "document_idle",
   main() {
     pageState.currentPath = location.pathname;
@@ -165,31 +213,43 @@ export default defineContentScript({
     const root = document.createElement("div");
     root.id = ROOT_ID;
 
-    const [state, setState] = createSignal<StatusCardState>({ kind: "loading" });
+    const [pageKind, setPageKind] = createSignal<PageKind | null>(null);
+    const [state, setState] = createSignal<StatusViewState>({ kind: "loading" });
     const [mergeState, setMergeState] = createSignal<MergeState>({ kind: "idle" });
 
     render(
       () => (
-        <StatusCard
-          state={state()}
-          mergeState={mergeState()}
+        <RootView
+          pageKind={pageKind}
+          state={state}
+          mergeState={mergeState}
           onMerge={() => {
-            void fastForwardMerge(root, state, setState, setMergeState);
+            void fastForwardMerge(root, setPageKind, state, setState, setMergeState);
           }}
         />
       ),
       root,
     );
 
-    // Re-run the PR check after both full page loads and GitHub's partial
-    // navigations so the card follows in-app route changes.
-    refresh(root, setState, setMergeState);
+    refresh(root, setPageKind, setState, setMergeState);
 
-    window.addEventListener("load", () => refresh(root, setState, setMergeState));
-    window.addEventListener("popstate", () => refresh(root, setState, setMergeState));
-    document.addEventListener("pjax:end", () => refresh(root, setState, setMergeState), true);
-    document.addEventListener("turbo:load", () => refresh(root, setState, setMergeState), true);
-    document.addEventListener("turbo:render", () => refresh(root, setState, setMergeState), true);
+    window.addEventListener("load", () => refresh(root, setPageKind, setState, setMergeState));
+    window.addEventListener("popstate", () => refresh(root, setPageKind, setState, setMergeState));
+    document.addEventListener(
+      "pjax:end",
+      () => refresh(root, setPageKind, setState, setMergeState),
+      true,
+    );
+    document.addEventListener(
+      "turbo:load",
+      () => refresh(root, setPageKind, setState, setMergeState),
+      true,
+    );
+    document.addEventListener(
+      "turbo:render",
+      () => refresh(root, setPageKind, setState, setMergeState),
+      true,
+    );
 
     setInterval(() => {
       if (location.pathname === pageState.currentPath) {
@@ -197,22 +257,85 @@ export default defineContentScript({
       }
 
       pageState.currentPath = location.pathname;
-      refresh(root, setState, setMergeState);
+      refresh(root, setPageKind, setState, setMergeState);
     }, URL_CHECK_INTERVAL_MS);
   },
 });
 
+function getStatusPresentation(state: StatusViewState): StatusPresentation {
+  if (state.kind === "loading") {
+    return {
+      tone: "loading",
+      title: "Checking fast-forward status",
+    };
+  }
+
+  if (state.kind === "error") {
+    return {
+      tone: "error",
+      title: "Fast-forward status unavailable",
+      detail: state.message,
+    };
+  }
+
+  const formatStatusDetail = (aheadBy: number) =>
+    `${aheadBy} commit${aheadBy === 1 ? "" : "s"} ahead`;
+  const action = state.result.hasGitHubPersonalAccessToken ? "merge" : "open-options";
+
+  switch (state.result.status) {
+    case "ff-possible":
+      return {
+        tone: "success",
+        title: "Fast-forward merge possible",
+        detail: formatStatusDetail(state.result.aheadBy),
+        action,
+      };
+    case "ff-possible-but-closed":
+      return {
+        tone: "error",
+        title: "Fast-forward merge possible, but the pull request is not open",
+        detail: formatStatusDetail(state.result.aheadBy),
+        action,
+      };
+    case "ff-possible-but-draft":
+      return {
+        tone: "error",
+        title: "Fast-forward merge possible, but the pull request is a draft",
+        detail: formatStatusDetail(state.result.aheadBy),
+        action,
+      };
+    case "up-to-date":
+      return {
+        tone: "muted",
+        title: "Already up to date",
+      };
+    case "base-ahead":
+    case "diverged":
+      return {
+        tone: "muted",
+        title: "Fast-forward merge not possible",
+      };
+    case "closed":
+      return {
+        tone: "muted",
+        title: "Pull request is not open",
+      };
+    case "unknown":
+      return {
+        tone: "error",
+        title: "Fast-forward status unavailable",
+        detail: "GitHub did not return a comparison state this extension understands.",
+      };
+  }
+}
+
 async function refresh(
   root: HTMLDivElement,
-  setState: (state: StatusCardState) => void,
+  setPageKind: (pageKind: PageKind | null) => void,
+  setState: (state: StatusViewState) => void,
   setMergeState: (state: MergeState) => void,
   options: RefreshOptions = {},
 ) {
-  // Ignore refresh() call if refresh() has been called within
-  // 100 milliseconds.
-  //
-  // GitHub can fire several navigation-related events for one transition.
-  // Following logic collapses them into a single refresh tick.
   if (pageState.scheduled) {
     return;
   }
@@ -220,36 +343,24 @@ async function refresh(
   await sleep(100);
   pageState.scheduled = false;
 
-  //
-  // Actual refresh logic starts here.
-  //
-
-  // Parse URL
-  const match = location.pathname.match(PR_PATH_PATTERN);
-  if (!match) {
+  const locator = parseCurrentRoute(location.pathname);
+  if (!locator) {
     root.remove();
+    setPageKind(null);
     setMergeState({ kind: "idle" });
     return;
   }
-  const [, owner, repo, pullNumber] = match;
-  const signature = `${owner}/${repo}#${pullNumber}`;
 
-  // Find mount target in the PR sidebar
-  const mountTarget = document.querySelector<HTMLElement>("#partial-discussion-sidebar");
-  if (!mountTarget) {
+  const mountInstruction = findMountInstruction(locator);
+  if (!mountInstruction) {
     root.remove();
-    setMergeState({ kind: "idle" });
     return;
   }
-  // Ensure the root is mounted properly
-  if (mountTarget.nextElementSibling !== root) {
-    mountTarget.insertAdjacentElement("beforeend", root);
-  }
 
-  const cached = pageState.cache.get(signature);
+  setPageKind(locator.pageKind);
+  ensureMounted(root, mountInstruction);
 
-  // Reuse recent API results while the user flips between tabs inside the
-  // same pull request page.
+  const cached = pageState.cache.get(locator.signature);
   if (!options.bypassCache && cached && Date.now() - cached.cachedAt < PAGE_CACHE_TTL_MS) {
     setMergeState({ kind: "idle" });
     setState({
@@ -263,36 +374,27 @@ async function refresh(
     setState({ kind: "loading" });
   }
 
-  if (!options.bypassCache && pageState.pendingKey === signature) {
+  if (!options.bypassCache && pageState.pendingKey === locator.signature) {
     return;
   }
 
-  pageState.pendingKey = signature;
+  pageState.pendingKey = locator.signature;
   const requestId = ++pageState.requestId;
 
   try {
-    // Ask the background worker to call the GitHub API so the content script
-    // stays focused on DOM work.
-    const response = (await browser.runtime.sendMessage({
-      type: GET_PULL_REQUEST_STATUS,
-      owner,
-      repo,
-      pullNumber: Number(pullNumber),
-    } satisfies PullRequestStatusRequest)) as PullRequestStatusResponse | undefined;
-    if (!response?.ok) {
-      throw new Error(response?.error.message ?? "The extension could not fetch PR status.");
-    }
-
-    // Drop late responses from older requests when the user navigates quickly
-    // between pull requests.
+    const result = await getStatusResult(locator);
     if (requestId !== pageState.requestId) {
       return;
     }
 
-    const optimisticClosedUntil = pageState.optimisticClosedUntil.get(signature) ?? 0;
-    if (optimisticClosedUntil > Date.now() && response.result.status !== "closed") {
+    const optimisticStatus = pageState.optimisticStatuses.get(locator.signature);
+    if (
+      optimisticStatus &&
+      optimisticStatus.until > Date.now() &&
+      result.status !== optimisticStatus.expectedStatus
+    ) {
       window.setTimeout(() => {
-        void refresh(root, setState, setMergeState, {
+        void refresh(root, setPageKind, setState, setMergeState, {
           bypassCache: true,
           preserveState: true,
         });
@@ -300,20 +402,20 @@ async function refresh(
       return;
     }
 
-    pageState.optimisticClosedUntil.delete(signature);
+    pageState.optimisticStatuses.delete(locator.signature);
 
     if (options.bypassCache) {
-      pageState.cache.delete(signature);
+      pageState.cache.delete(locator.signature);
     } else {
-      pageState.cache.set(signature, {
-        result: response.result,
+      pageState.cache.set(locator.signature, {
+        result,
         cachedAt: Date.now(),
       });
     }
     setMergeState({ kind: "idle" });
     setState({
       kind: "loaded",
-      result: response.result,
+      result,
     });
   } catch (error) {
     if (requestId !== pageState.requestId) {
@@ -329,73 +431,213 @@ async function refresh(
       message: error instanceof Error ? error.message : String(error),
     });
   } finally {
-    if (pageState.pendingKey === signature) {
+    if (pageState.pendingKey === locator.signature) {
       pageState.pendingKey = null;
     }
   }
 }
 
-async function fastForwardMerge(
-  root: HTMLDivElement,
-  state: () => StatusCardState,
-  setState: (state: StatusCardState) => void,
-  setMergeState: (state: MergeState) => void,
-) {
-  const match = location.pathname.match(PR_PATH_PATTERN);
-  if (!match) {
-    setMergeState({ kind: "error", message: "This is no longer a pull request page." });
-    return;
+async function getStatusResult(locator: RouteLocator): Promise<StatusResult> {
+  if (locator.kind === "pull-request") {
+    const response = (await browser.runtime.sendMessage({
+      type: GET_PULL_REQUEST_STATUS,
+      owner: locator.owner,
+      repo: locator.repo,
+      pullNumber: locator.pullNumber,
+    } satisfies PullRequestStatusRequest)) as PullRequestStatusResponse | undefined;
+    if (!response?.ok) {
+      throw new Error(response?.error.message ?? "The extension could not fetch PR status.");
+    }
+    return response.result;
   }
 
-  const [, owner, repo, pullNumber] = match;
+  const response = (await browser.runtime.sendMessage({
+    type: GET_COMPARISON_STATUS,
+    owner: locator.owner,
+    repo: locator.repo,
+    base: locator.base,
+    head: locator.head,
+  } satisfies ComparisonStatusRequest)) as ComparisonStatusResponse | undefined;
+  if (!response?.ok) {
+    throw new Error(response?.error.message ?? "The extension could not fetch comparison status.");
+  }
+  return response.result;
+}
+
+async function fastForwardMerge(
+  root: HTMLDivElement,
+  setPageKind: (pageKind: PageKind | null) => void,
+  state: () => StatusViewState,
+  setState: (state: StatusViewState) => void,
+  setMergeState: (state: MergeState) => void,
+) {
+  const locator = parseCurrentRoute(location.pathname);
+  if (!locator) {
+    setMergeState({ kind: "error", message: "This is no longer a supported GitHub page." });
+    return;
+  }
 
   setMergeState({ kind: "submitting" });
 
   try {
-    const signature = `${owner}/${repo}#${pullNumber}`;
-    const response = (await browser.runtime.sendMessage({
-      type: MERGE_PULL_REQUEST,
-      owner,
-      repo,
-      pullNumber: Number(pullNumber),
-    } satisfies MergePullRequestRequest)) as MergePullRequestResponse | undefined;
-    if (!response?.ok) {
-      throw new Error(
-        response?.error.message ?? "The extension could not fast-forward merge this PR.",
-      );
+    if (locator.kind === "pull-request") {
+      const response = (await browser.runtime.sendMessage({
+        type: MERGE_PULL_REQUEST,
+        owner: locator.owner,
+        repo: locator.repo,
+        pullNumber: locator.pullNumber,
+      } satisfies MergePullRequestRequest)) as MergePullRequestResponse | undefined;
+      if (!response?.ok) {
+        throw new Error(
+          response?.error.message ?? "The extension could not fast-forward merge this PR.",
+        );
+      }
+    } else {
+      const response = (await browser.runtime.sendMessage({
+        type: MERGE_COMPARISON,
+        owner: locator.owner,
+        repo: locator.repo,
+        base: locator.base,
+        head: locator.head,
+      } satisfies MergeComparisonRequest)) as MergeComparisonResponse | undefined;
+      if (!response?.ok) {
+        throw new Error(
+          response?.error.message ?? "The extension could not fast-forward merge this comparison.",
+        );
+      }
     }
 
     const currentState = state();
-    const optimisticClosedResult: PullRequestStatusResult = {
+    const optimisticResult: StatusResult = {
       aheadBy: 0,
       hasGitHubPersonalAccessToken:
         currentState.kind === "loaded" ? currentState.result.hasGitHubPersonalAccessToken : true,
-      status: "closed",
+      status: locator.optimisticStatusAfterMerge,
     };
-    pageState.optimisticClosedUntil.set(signature, Date.now() + 5_000);
-    pageState.cache.set(signature, {
-      result: optimisticClosedResult,
+    pageState.optimisticStatuses.set(locator.signature, {
+      expectedStatus: locator.optimisticStatusAfterMerge,
+      until: Date.now() + 5_000,
+    });
+    pageState.cache.set(locator.signature, {
+      result: optimisticResult,
       cachedAt: Date.now(),
     });
     setMergeState({ kind: "idle" });
     setState({
       kind: "loaded",
-      result: optimisticClosedResult,
+      result: optimisticResult,
     });
 
     window.setTimeout(() => {
-      pageState.cache.delete(signature);
-      void refresh(root, setState, setMergeState, {
+      pageState.cache.delete(locator.signature);
+      void refresh(root, setPageKind, setState, setMergeState, {
         bypassCache: true,
         preserveState: true,
       });
     }, 1500);
   } catch (error) {
-    pageState.optimisticClosedUntil.delete(`${owner}/${repo}#${pullNumber}`);
+    pageState.optimisticStatuses.delete(locator.signature);
     setMergeState({
       kind: "error",
       message: error instanceof Error ? error.message : String(error),
     });
+  }
+}
+
+function parseCurrentRoute(pathname: string): RouteLocator | null {
+  const pullRequestMatch = pathname.match(PR_PATH_PATTERN);
+  if (pullRequestMatch) {
+    const [, owner, repo, pullNumberText] = pullRequestMatch;
+    const pullNumber = Number(pullNumberText);
+    if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0) {
+      return null;
+    }
+
+    return {
+      kind: "pull-request",
+      pageKind: "pull-request",
+      owner,
+      repo,
+      pullNumber,
+      signature: `pull-request:${owner}/${repo}#${pullNumber}`,
+      optimisticStatusAfterMerge: "closed",
+    };
+  }
+
+  const compareMatch = pathname.match(COMPARE_PATH_PATTERN);
+  if (!compareMatch) {
+    return null;
+  }
+
+  const comparison = parseComparisonSpec(compareMatch[3]);
+  if (!comparison) {
+    return null;
+  }
+
+  const [, owner, repo] = compareMatch;
+  return {
+    kind: "compare",
+    pageKind: "compare",
+    owner,
+    repo,
+    base: comparison.base,
+    head: comparison.head,
+    signature: `compare:${owner}/${repo}:${comparison.base}...${comparison.head}`,
+    optimisticStatusAfterMerge: "up-to-date",
+  };
+}
+
+function parseComparisonSpec(spec: string) {
+  let decodedSpec: string;
+  try {
+    decodedSpec = decodeURIComponent(spec);
+  } catch {
+    return null;
+  }
+
+  const separatorIndex = decodedSpec.indexOf("...");
+  if (separatorIndex <= 0) {
+    return null;
+  }
+
+  const base = decodedSpec.slice(0, separatorIndex);
+  const head = decodedSpec.slice(separatorIndex + 3);
+  if (!base || !head) {
+    return null;
+  }
+
+  return { base, head };
+}
+
+function findMountInstruction(locator: RouteLocator): MountInstruction | null {
+  if (locator.kind === "pull-request") {
+    const mountTarget = document.querySelector<HTMLElement>("#partial-discussion-sidebar");
+    if (!mountTarget) {
+      return null;
+    }
+
+    return { kind: "append", element: mountTarget };
+  }
+
+  const commitsBucket = document.querySelector<HTMLElement>("#commits_bucket");
+  const summaryBox = commitsBucket?.previousElementSibling;
+  if (!(summaryBox instanceof HTMLElement)) {
+    return null;
+  }
+
+  return { kind: "before", element: summaryBox };
+}
+
+function ensureMounted(root: HTMLDivElement, mountInstruction: MountInstruction) {
+  if (mountInstruction.kind === "append") {
+    if (root.parentElement !== mountInstruction.element) {
+      mountInstruction.element.insertAdjacentElement("beforeend", root);
+    }
+    return;
+  }
+
+  if (mountInstruction.element.previousElementSibling !== root) {
+    mountInstruction.element.insertAdjacentElement("beforebegin", root);
   }
 }
 

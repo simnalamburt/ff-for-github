@@ -2,7 +2,7 @@
   "name": "ff-for-github",
   "version": "0.1.0",
   "private": true,
-  "description": "Shows whether a GitHub pull request can be fast-forward merged.",
+  "description": "Shows whether a GitHub pull request or comparison can be fast-forward merged.",
   "type": "module",
   "scripts": {
     "ci": "tsc --noEmit && oxlint && oxfmt --check",

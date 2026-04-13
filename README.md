@@ -1,7 +1,7 @@
 # Fast-forward merge for GitHub
 
-Conveniently fast-forward merge pull requests directly from your browser,
-without opening a terminal!
+Conveniently fast-forward merge branches directly from your browser, without
+opening a terminal!
 
 [**Install this extension** at chrome web store](https://chromewebstore.google.com/detail/mdhgpmfmpanllfnemeammedjedkdcjpo)
 
@@ -24,6 +24,7 @@ used solely to call the following APIs:
 
 - [GET https://api.github.com/repos/OWNER/REPO/pulls/PULL_NUMBER](https://docs.github.com/en/rest/pulls/pulls?apiVersion=2026-03-10#get-a-pull-request)
 - [GET https://api.github.com/repos/OWNER/REPO/compare/BASE...HEAD](https://docs.github.com/en/rest/commits/commits?apiVersion=2026-03-10#compare-two-commits)
+- [GET https://api.github.com/repos/OWNER/REPO/commits/REF](https://docs.github.com/en/rest/commits/commits?apiVersion=2026-03-10#get-a-commit)
 - [PATCH https://api.github.com/repos/OWNER/REPO/git/refs/REF](https://docs.github.com/en/rest/git/refs?apiVersion=2026-03-10#update-a-reference)
 
 For more details, please refer to [PRIVACY.md].

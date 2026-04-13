@@ -1,50 +1,54 @@
 #ghff-root > article {
-  /* Base card shell shared by every status tone. */
-  border: 1px solid var(--borderColor-default, #d0d7de);
-  border-radius: 10px;
-  background: var(--bgColor-muted, #f6f8fa);
+  --ghff-border-color: var(--borderColor-default, #d0d7de);
+  --ghff-bg-color: var(--bgColor-muted, #f6f8fa);
+  --ghff-accent-color: var(--borderColor-muted, #656d76);
+
+  border: 1px solid var(--ghff-border-color);
   color: var(--fgColor-default, #1f2328);
-  margin-top: 16px;
-  padding: 14px 16px;
 
-  /* Tone variants mirror GitHub's success/attention/muted/danger palette. */
   &[data-tone="loading"] {
-    border-color: var(--borderColor-attention-emphasis, #9a6700);
-    background: var(--bgColor-attention-muted, #fff8c5);
-  }
-  &[data-tone="success"] {
-    border-color: var(--borderColor-success-emphasis, #1a7f37);
-    background: var(--bgColor-success-muted, #dafbe1);
-  }
-  &[data-tone="muted"] {
-    border-color: var(--borderColor-muted, #656d76);
-    background: var(--bgColor-muted, #f6f8fa);
-  }
-  &[data-tone="error"] {
-    border-color: var(--borderColor-danger-emphasis, #cf222e);
-    background: var(--bgColor-danger-muted, #ffebe9);
+    --ghff-border-color: var(--borderColor-attention-emphasis, #9a6700);
+    --ghff-bg-color: var(--bgColor-attention-muted, #fff8c5);
+    --ghff-accent-color: var(--fgColor-attention, #9a6700);
   }
 
-  /* Content spacing is intentionally tight because the card lives in the sidebar. */
+  &[data-tone="success"] {
+    --ghff-border-color: var(--borderColor-success-emphasis, #1a7f37);
+    --ghff-bg-color: var(--bgColor-success-muted, #dafbe1);
+    --ghff-accent-color: var(--fgColor-success, #1f883d);
+  }
+
+  &[data-tone="muted"] {
+    --ghff-border-color: var(--borderColor-muted, #656d76);
+    --ghff-bg-color: var(--bgColor-muted, #f6f8fa);
+    --ghff-accent-color: var(--fgColor-muted, #656d76);
+  }
+
+  &[data-tone="error"] {
+    --ghff-border-color: var(--borderColor-danger-emphasis, #cf222e);
+    --ghff-bg-color: var(--bgColor-danger-muted, #ffebe9);
+    --ghff-accent-color: var(--fgColor-danger, #d1242f);
+  }
+
   > .ghff-title {
     font-size: 16px;
     font-weight: 600;
     line-height: 1.4;
   }
 
-  > .ghff-detail {
+  .ghff-detail {
     font-size: 12px;
     line-height: 1.5;
     margin-top: 8px;
     opacity: 0.78;
   }
 
-  > .ghff-detail--error {
+  .ghff-detail--error {
     color: var(--fgColor-danger, #d1242f);
     opacity: 1;
   }
 
-  > button {
+  button {
     appearance: none;
     border: 1px solid var(--button-default-borderColor-rest, rgba(31, 35, 40, 0.15));
     border-radius: 6px;
@@ -55,7 +59,6 @@
     font-size: 14px;
     font-weight: 600;
     line-height: 20px;
-    margin-top: 12px;
     padding: 6px 14px;
 
     &:hover {
@@ -68,11 +71,73 @@
     }
   }
 
-  &[data-tone="error"] > button {
+  &[data-tone="error"] button {
     background: var(--button-danger-bgColor-rest, #cf222e);
 
     &:hover {
       background: var(--button-danger-bgColor-hover, #a40e26);
+    }
+  }
+}
+
+#ghff-root > .ghff-card {
+  background: var(--ghff-bg-color);
+  border-radius: 10px;
+  margin-top: 16px;
+  padding: 14px 16px;
+
+  > button {
+    margin-top: 12px;
+  }
+}
+
+#ghff-root > .ghff-compare-banner {
+  background: var(--ghff-bg-color);
+  border-radius: 12px;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  position: relative;
+
+  &::before {
+    background: var(--ghff-accent-color);
+    border-radius: 999px;
+    content: "";
+    align-self: stretch;
+    flex: none;
+    width: 6px;
+  }
+
+  > .ghff-compare-banner__copy {
+    flex: 1;
+    min-width: 0;
+  }
+
+  > .ghff-compare-banner__actions {
+    display: flex;
+    flex: none;
+    justify-content: flex-end;
+  }
+
+  > .ghff-compare-banner__actions > button {
+    white-space: nowrap;
+  }
+}
+
+@media (max-width: 767px) {
+  #ghff-root > .ghff-compare-banner {
+    flex-wrap: wrap;
+    gap: 12px;
+
+    &::before {
+      height: 4px;
+      width: 100%;
+    }
+
+    > .ghff-compare-banner__actions {
+      width: 100%;
     }
   }
 }

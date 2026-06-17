@@ -30,12 +30,5 @@
     "typescript": "^6.0.2",
     "wxt": "^0.20.21"
   },
-  "packageManager": "pnpm@10.33.0",
-  "pnpm": {
-    "ignoredBuiltDependencies": [
-      "esbuild",
-      "sharp",
-      "spawn-sync"
-    ]
-  }
+  "packageManager": "pnpm@11.7.0"
 }

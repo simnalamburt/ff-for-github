@@ -9,7 +9,7 @@ export default defineConfig({
   manifest: {
     name: "Fast-forward merge for GitHub",
     description: "Shows whether a GitHub pull request or branch can be fast-forward merged.",
-    host_permissions: ["https://api.github.com/*", "https://github.com/*"],
+    host_permissions: ["https://api.github.com/*"],
     permissions: ["storage"],
     browser_specific_settings: {
       gecko: {

@@ -45,6 +45,7 @@ type GitHubCommitResponse = {
 };
 
 type RuntimeMessageSender = {
+  url?: string;
   tab?: {
     url?: string;
   };
@@ -482,9 +483,9 @@ async function githubRequest<T>(
 function validateComparisonRequestSender<
   T extends { owner: string; repo: string; base: string; head: string },
 >(request: T, sender: RuntimeMessageSender): T {
-  const senderUrl = sender.tab?.url;
+  const senderUrl = getSenderUrl(sender);
   if (!senderUrl) {
-    throw new Error("Comparison requests must come from a browser tab.");
+    throw new Error("Comparison requests must come from a GitHub page.");
   }
 
   const senderRequest = parseComparisonLocatorFromUrl(senderUrl);
@@ -507,9 +508,9 @@ function validateComparisonRequestSender<
 function validatePullRequestRequestSender<
   T extends { owner: string; repo: string; pullNumber: number },
 >(request: T, sender: RuntimeMessageSender): T {
-  const senderUrl = sender.tab?.url;
+  const senderUrl = getSenderUrl(sender);
   if (!senderUrl) {
-    throw new Error("Pull request status requests must come from a browser tab.");
+    throw new Error("Pull request status requests must come from a GitHub page.");
   }
 
   const senderRequest = parsePullRequestLocatorFromUrl(senderUrl);
@@ -528,6 +529,10 @@ function validatePullRequestRequestSender<
   }
 
   return request;
+}
+
+function getSenderUrl(sender: RuntimeMessageSender) {
+  return sender.url ?? sender.tab?.url;
 }
 
 function parsePullRequestLocatorFromUrl(urlString: string) {

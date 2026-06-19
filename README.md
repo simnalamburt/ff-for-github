@@ -54,6 +54,26 @@ For more details, please refer to [PRIVACY.md].
   </tr>
 </table>
 
+### How to contribute
+
+```bash
+# Install dependencies
+pnpm i
+# Chrome dev server
+pnpm dev
+# Firefox dev server
+pnpm dev:firefox
+# Checks
+pnpm run ci
+
+# Distribution (prepare 'privkey.pem' first)
+pnpm build
+'/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' --pack-extension=.output/chrome-mv3 --pack-extension-key=privkey.pem
+mv .output/{chrome-mv3,ff-for-github-0.1.2-chrome}.crx
+
+pnpm zip:firefox
+```
+
 &nbsp;
 
 ---

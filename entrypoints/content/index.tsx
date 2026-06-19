@@ -71,7 +71,7 @@ const pageState = {
 
 type StatusViewState =
   | { kind: "loading" }
-  | { kind: "error"; message: string }
+  | { kind: "error"; message: string; action?: StatusPresentation["action"] }
   | { kind: "loaded"; result: StatusResult };
 
 type MergeState = { kind: "idle" } | { kind: "submitting" } | { kind: "error"; message: string };
@@ -85,6 +85,16 @@ type StatusPresentation = {
   detail?: string;
   action?: "merge" | "open-options";
 };
+
+class StatusFetchError extends Error {
+  constructor(
+    message: string,
+    readonly action?: StatusPresentation["action"],
+  ) {
+    super(message);
+    this.name = "StatusFetchError";
+  }
+}
 
 const StatusActionButton: Component<{
   action?: StatusPresentation["action"];
@@ -271,10 +281,20 @@ function getStatusPresentation(state: StatusViewState): StatusPresentation {
   }
 
   if (state.kind === "error") {
+    if (state.action === "open-options") {
+      return {
+        tone: "muted",
+        title: "Set up GitHub token",
+        detail: state.message,
+        action: state.action,
+      };
+    }
+
     return {
       tone: "error",
       title: "Fast-forward status unavailable",
       detail: state.message,
+      action: state.action,
     };
   }
 
@@ -429,6 +449,7 @@ async function refresh(
     setState({
       kind: "error",
       message: error instanceof Error ? error.message : String(error),
+      action: error instanceof StatusFetchError ? error.action : undefined,
     });
   } finally {
     if (pageState.pendingKey === locator.signature) {
@@ -446,7 +467,10 @@ async function getStatusResult(locator: RouteLocator): Promise<StatusResult> {
       pullNumber: locator.pullNumber,
     } satisfies PullRequestStatusRequest)) as PullRequestStatusResponse | undefined;
     if (!response?.ok) {
-      throw new Error(response?.error.message ?? "The extension could not fetch PR status.");
+      throw new StatusFetchError(
+        response?.error.message ?? "The extension could not fetch PR status.",
+        response?.error.requiresGitHubPersonalAccessTokenSetup ? "open-options" : undefined,
+      );
     }
     return response.result;
   }
@@ -459,7 +483,10 @@ async function getStatusResult(locator: RouteLocator): Promise<StatusResult> {
     head: locator.head,
   } satisfies ComparisonStatusRequest)) as ComparisonStatusResponse | undefined;
   if (!response?.ok) {
-    throw new Error(response?.error.message ?? "The extension could not fetch comparison status.");
+    throw new StatusFetchError(
+      response?.error.message ?? "The extension could not fetch comparison status.",
+      response?.error.requiresGitHubPersonalAccessTokenSetup ? "open-options" : undefined,
+    );
   }
   return response.result;
 }

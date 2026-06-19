@@ -51,6 +51,23 @@ type RuntimeMessageSender = {
   };
 };
 
+class GitHubApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+    this.name = "GitHubApiError";
+  }
+}
+
+class GitHubPersonalAccessTokenSetupRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "GitHubPersonalAccessTokenSetupRequiredError";
+  }
+}
+
 const GITHUB_COMPARE_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/compare\/([^/]+)(?:\/.*)?$/;
 const GITHUB_PULL_REQUEST_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
 const ComparisonStatusRequestSchema = v.object({
@@ -167,7 +184,7 @@ async function getComparisonStatusResponse(
   } catch (error) {
     return {
       ok: false,
-      error: { message: error instanceof Error ? error.message : String(error) },
+      error: getStatusResponseError(error),
     };
   }
 }
@@ -183,7 +200,7 @@ async function getPullRequestStatusResponse(
   } catch (error) {
     return {
       ok: false,
-      error: { message: error instanceof Error ? error.message : String(error) },
+      error: getStatusResponseError(error),
     };
   }
 }
@@ -230,17 +247,23 @@ async function getComparisonStatus({
   base,
   head,
 }: ComparisonStatusRequest): Promise<ComparisonStatusResult> {
-  const token = await getGitHubPersonalAccessToken();
-  const comparison = await getGitHubComparison({
-    owner,
-    repo,
-    base,
-    head,
-    token,
-  });
+  const token = await requireGitHubPersonalAccessToken();
+  let comparison: GitHubCompareResponse;
+  try {
+    comparison = await getGitHubComparison({
+      owner,
+      repo,
+      base,
+      head,
+      token,
+    });
+  } catch (error) {
+    throw getStatusRequestError(error);
+  }
+
   return {
     aheadBy: comparison.ahead_by ?? 0,
-    hasGitHubPersonalAccessToken: token.trim() !== "",
+    hasGitHubPersonalAccessToken: true,
     status: mapComparisonStatus(comparison.status),
   };
 }
@@ -250,54 +273,57 @@ async function getPullRequestStatus({
   repo,
   pullNumber,
 }: PullRequestStatusRequest): Promise<PullRequestStatusResult> {
-  const token = await getGitHubPersonalAccessToken();
-  const hasGitHubPersonalAccessToken = token.trim() !== "";
+  const token = await requireGitHubPersonalAccessToken();
 
-  // Pull request metadata gives us the current base/head refs and SHAs that
-  // GitHub is comparing on the page.
-  const pullRequest = await githubRequest<GitHubPullRequestResponse>(
-    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(String(pullNumber))}`,
-    token,
-  );
+  try {
+    // Pull request metadata gives us the current base/head refs and SHAs that
+    // GitHub is comparing on the page.
+    const pullRequest = await githubRequest<GitHubPullRequestResponse>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pulls/${encodeURIComponent(String(pullNumber))}`,
+      token,
+    );
 
-  const baseRef = pullRequest.base?.ref ?? "";
-  const headSha = pullRequest.head?.sha ?? "";
-  const isDraft = pullRequest.draft === true;
-  const state = pullRequest.state ?? "open";
+    const baseRef = pullRequest.base?.ref ?? "";
+    const headSha = pullRequest.head?.sha ?? "";
+    const isDraft = pullRequest.draft === true;
+    const state = pullRequest.state ?? "open";
 
-  if (!baseRef || !headSha) {
-    return {
-      hasGitHubPersonalAccessToken,
-      status: state !== "open" ? "closed" : "unknown",
-      aheadBy: 0,
-    };
+    if (!baseRef || !headSha) {
+      return {
+        hasGitHubPersonalAccessToken: true,
+        status: state !== "open" ? "closed" : "unknown",
+        aheadBy: 0,
+      };
+    }
+
+    const comparison = await githubRequest<GitHubCompareResponse>(
+      `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(headSha)}`,
+      token,
+    );
+    const aheadBy = comparison.ahead_by ?? 0;
+    const status = (() => {
+      if (state !== "open") {
+        return comparison.status === "ahead" ? "ff-possible-but-closed" : "closed";
+      }
+      // GitHub's compare API already tells us the ancestry relationship, so map it
+      // directly to the UI states used by the content script.
+      switch (comparison.status) {
+        case "ahead":
+          return isDraft ? "ff-possible-but-draft" : "ff-possible";
+        case "identical":
+          return "up-to-date";
+        case "behind":
+          return "base-ahead";
+        case "diverged":
+          return "diverged";
+        default:
+          return "unknown";
+      }
+    })();
+    return { aheadBy, hasGitHubPersonalAccessToken: true, status };
+  } catch (error) {
+    throw getStatusRequestError(error);
   }
-
-  const comparison = await githubRequest<GitHubCompareResponse>(
-    `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/compare/${encodeURIComponent(baseRef)}...${encodeURIComponent(headSha)}`,
-    token,
-  );
-  const aheadBy = comparison.ahead_by ?? 0;
-  const status = (() => {
-    if (state !== "open") {
-      return comparison.status === "ahead" ? "ff-possible-but-closed" : "closed";
-    }
-    // GitHub's compare API already tells us the ancestry relationship, so map it
-    // directly to the UI states used by the content script.
-    switch (comparison.status) {
-      case "ahead":
-        return isDraft ? "ff-possible-but-draft" : "ff-possible";
-      case "identical":
-        return "up-to-date";
-      case "behind":
-        return "base-ahead";
-      case "diverged":
-        return "diverged";
-      default:
-        return "unknown";
-    }
-  })();
-  return { aheadBy, hasGitHubPersonalAccessToken, status };
 }
 
 async function mergeComparison({ owner, repo, base, head }: MergeComparisonRequest): Promise<void> {
@@ -474,10 +500,36 @@ async function githubRequest<T>(
       typeof data.message === "string"
         ? data.message
         : `GitHub API request failed with status ${response.status}.`;
-    throw new Error(message);
+    throw new GitHubApiError(message, response.status);
   }
 
   return data as T;
+}
+
+function getStatusResponseError(error: unknown) {
+  return {
+    message: error instanceof Error ? error.message : String(error),
+    requiresGitHubPersonalAccessTokenSetup:
+      error instanceof GitHubPersonalAccessTokenSetupRequiredError ? true : undefined,
+  };
+}
+
+function getStatusRequestError(error: unknown) {
+  if (error instanceof GitHubApiError && isGitHubPersonalAccessTokenSetupFailure(error)) {
+    return new GitHubPersonalAccessTokenSetupRequiredError(
+      "Missing, invalid, or insufficient GitHub token. Set up a token with access to this repository.",
+    );
+  }
+
+  return error;
+}
+
+function isGitHubPersonalAccessTokenSetupFailure(error: GitHubApiError) {
+  if (error.status === 401 || error.status === 404) {
+    return true;
+  }
+
+  return error.status === 403 && !/rate limit/i.test(error.message);
 }
 
 function validateComparisonRequestSender<
@@ -633,6 +685,17 @@ async function getGitHubPersonalAccessToken(): Promise<string> {
   const stored = await browser.storage.local.get(GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY);
   const token = stored[GITHUB_PERSONAL_ACCESS_TOKEN_STORAGE_KEY];
   return typeof token === "string" ? token : "";
+}
+
+async function requireGitHubPersonalAccessToken(): Promise<string> {
+  const token = (await getGitHubPersonalAccessToken()).trim();
+  if (token === "") {
+    throw new GitHubPersonalAccessTokenSetupRequiredError(
+      "No GitHub token is saved. Set up a token to check this repository.",
+    );
+  }
+
+  return token;
 }
 
 async function setStorageAccessLevelToTrustedContexts() {

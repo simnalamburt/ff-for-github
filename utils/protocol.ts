@@ -44,6 +44,11 @@ type SharedStatusResult = {
   hasGitHubPersonalAccessToken: boolean;
 };
 
+type StatusResponseError = {
+  message: string;
+  requiresGitHubPersonalAccessTokenSetup?: boolean;
+};
+
 export type ComparisonStatusResult = SharedStatusResult & {
   status: "ff-possible" | "up-to-date" | "base-ahead" | "diverged" | "unknown";
 };
@@ -67,9 +72,7 @@ export type ComparisonStatusResponse =
     }
   | {
       ok: false;
-      error: {
-        message: string;
-      };
+      error: StatusResponseError;
     };
 
 export type PullRequestStatusResponse =
@@ -79,9 +82,7 @@ export type PullRequestStatusResponse =
     }
   | {
       ok: false;
-      error: {
-        message: string;
-      };
+      error: StatusResponseError;
     };
 
 export type MergeComparisonResponse =

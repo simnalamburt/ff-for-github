@@ -3,7 +3,8 @@
 Conveniently fast-forward merge branches directly from your browser, without
 opening a terminal!
 
-[**Install this extension** at chrome web store](https://chromewebstore.google.com/detail/mdhgpmfmpanllfnemeammedjedkdcjpo)
+[**Install this extension** at chrome web store](https://chromewebstore.google.com/detail/mdhgpmfmpanllfnemeammedjedkdcjpo) \
+[**Install this extension** at addons.mozilla.org](https://addons.mozilla.org/en-US/firefox/addon/ff-for-github/)
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="https://i.hyeon.me/ff-for-github/dark.avif">

@@ -13,6 +13,8 @@ export default defineConfig({
     permissions: ["storage"],
     browser_specific_settings: {
       gecko: {
+        id: "ff-for-github@hyeon.me",
+        strict_min_version: "127.0",
         data_collection_permissions: {
           required: ["none"],
         },

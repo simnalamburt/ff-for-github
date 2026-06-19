@@ -1,17 +1,17 @@
 # Privacy policy
 
 Fast-forward merge for GitHub handles only the data necessary to show
-fast-forward status for the current GitHub pull request and, if the user
-chooses, perform a fast-forward merge through GitHub.
+fast-forward status for the current GitHub pull request or comparison and, if
+the user chooses, perform a fast-forward merge through GitHub.
 
 Data handled by the extension:
 
 - A GitHub Personal Access Token entered by the user on the options page.
-- GitHub repository owner/name and pull request number derived from the current
-  GitHub pull request URL.
-- GitHub API responses needed to determine whether the pull request can be
-  fast-forward merged and, when the user requests it, to update the base branch
-  reference.
+- GitHub repository owner/name and pull request number or comparison refs
+  derived from the current GitHub URL.
+- GitHub API responses needed to determine whether the pull request or
+  comparison can be fast-forward merged and, when the user requests it, to
+  update the base branch reference.
 
 How the data is used:
 
@@ -47,17 +47,17 @@ Privacy form submitted to the Chrome Web Store.
 > [Learn more][policies]
 
 Fast-forward merge for GitHub has one narrow purpose: it helps a user evaluate
-and, if they choose, perform a fast-forward merge for the GitHub pull request
-currently open in the browser. On GitHub pull request pages, the extension adds
-a small status card in the sidebar, reads the repository owner/name and pull
-request number from the page URL, asks the GitHub API for the pull request
-metadata and branch comparison, and shows whether a fast-forward merge is
-possible. If the user has saved a GitHub Personal Access Token and explicitly
-clicks the action button, the extension sends the corresponding GitHub API
-request to update the base branch ref and complete the fast-forward merge. The
-extension does not provide unrelated features such as issue management,
-analytics, advertising, or general page modification outside GitHub pull request
-pages.
+and, if they choose, perform a fast-forward merge for the GitHub pull request or
+comparison currently open in the browser. On GitHub pull request and comparison
+pages, the extension adds a small status UI, reads the repository owner/name and
+pull request number or comparison refs from the page URL, asks the GitHub API
+for the needed pull request metadata and branch comparison, and shows whether a
+fast-forward merge is possible. If the user has saved a GitHub Personal Access
+Token and explicitly clicks the action button, the extension sends the
+corresponding GitHub API request to update the base branch ref and complete the
+fast-forward merge. The extension does not provide unrelated features such as
+issue management, analytics, advertising, or general page modification outside
+GitHub pull request and comparison pages.
 
 ## Permission justification
 
@@ -88,15 +88,16 @@ content scripts cannot directly read the stored token.
 > "content_scripts" fields of the extension manifest
 
 Two GitHub host accesses are required for the extension’s single purpose. First,
-the content script runs on `https://github.com/*/*/pull/*` so it can detect that
-the current page is a GitHub pull request, read the owner/repository/pull
-request number from the URL, and render the fast-forward status card in the pull
-request sidebar. It does not run on unrelated websites. Second,
-`https://api.github.com/*` is required because the background worker calls the
-GitHub REST API to fetch pull request metadata, compare the base branch against
-the pull request head, validate the user’s GitHub token, and, only after the
-user explicitly clicks the merge button, update the base branch reference to
-perform the fast-forward merge. No other external hosts are used.
+the content script runs on `https://github.com/*/*/pull/*` and
+`https://github.com/*/*/compare/*` so it can detect that the current page is a
+supported GitHub page, read the owner/repository and pull request number or
+comparison refs from the URL, and render the fast-forward status UI. It does not
+run on unrelated websites. Second, `https://api.github.com/*` is required as an
+explicit host permission because the background worker calls the GitHub REST API
+to fetch pull request metadata, compare branches, validate the user’s GitHub
+token, and, only after the user explicitly clicks the merge button, update the
+base branch reference to perform the fast-forward merge. No other external hosts
+are used.
 
 #### Are you using remote code?
 

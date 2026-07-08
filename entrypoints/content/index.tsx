@@ -63,6 +63,7 @@ type OptimisticStatus = {
 const pageState = {
   cache: new Map<string, { cachedAt: number; result: StatusResult }>(),
   currentPath: "",
+  mountObserver: null as MutationObserver | null,
   optimisticStatuses: new Map<string, OptimisticStatus>(),
   pendingKey: null as string | null,
   requestId: 0,
@@ -262,12 +263,15 @@ export default defineContentScript({
     );
 
     setInterval(() => {
-      if (location.pathname === pageState.currentPath) {
+      if (location.pathname !== pageState.currentPath) {
+        pageState.currentPath = location.pathname;
+        refresh(root, setPageKind, setState, setMergeState);
         return;
       }
 
-      pageState.currentPath = location.pathname;
-      refresh(root, setPageKind, setState, setMergeState);
+      if (!root.isConnected && parseCurrentRoute(location.pathname)) {
+        refresh(root, setPageKind, setState, setMergeState);
+      }
     }, URL_CHECK_INTERVAL_MS);
   },
 });
@@ -365,6 +369,7 @@ async function refresh(
 
   const locator = parseCurrentRoute(location.pathname);
   if (!locator) {
+    stopObservingMountTarget();
     root.remove();
     setPageKind(null);
     setMergeState({ kind: "idle" });
@@ -374,9 +379,11 @@ async function refresh(
   const mountInstruction = findMountInstruction(locator);
   if (!mountInstruction) {
     root.remove();
+    observeMountTarget(root, setPageKind, setState, setMergeState);
     return;
   }
 
+  stopObservingMountTarget();
   setPageKind(locator.pageKind);
   ensureMounted(root, mountInstruction);
 
@@ -665,6 +672,42 @@ function ensureMounted(root: HTMLDivElement, mountInstruction: MountInstruction)
 
   if (mountInstruction.element.previousElementSibling !== root) {
     mountInstruction.element.insertAdjacentElement("beforebegin", root);
+  }
+}
+
+function observeMountTarget(
+  root: HTMLDivElement,
+  setPageKind: (pageKind: PageKind | null) => void,
+  setState: (state: StatusViewState) => void,
+  setMergeState: (state: MergeState) => void,
+) {
+  if (pageState.mountObserver) {
+    return;
+  }
+
+  pageState.mountObserver = new MutationObserver(() => {
+    const locator = parseCurrentRoute(location.pathname);
+    if (!locator) {
+      stopObservingMountTarget();
+      return;
+    }
+
+    if (findMountInstruction(locator)) {
+      stopObservingMountTarget();
+      void refresh(root, setPageKind, setState, setMergeState);
+    }
+  });
+
+  pageState.mountObserver.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+function stopObservingMountTarget() {
+  if (pageState.mountObserver) {
+    pageState.mountObserver.disconnect();
+    pageState.mountObserver = null;
   }
 }
 

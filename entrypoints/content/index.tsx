@@ -360,6 +360,12 @@ async function refresh(
   setMergeState: (state: MergeState) => void,
   options: RefreshOptions = {},
 ) {
+  for (const element of document.querySelectorAll(`#${ROOT_ID}`)) {
+    if (element !== root) {
+      element.remove();
+    }
+  }
+
   if (pageState.scheduled) {
     return;
   }

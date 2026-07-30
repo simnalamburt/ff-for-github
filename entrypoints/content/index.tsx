@@ -588,6 +588,10 @@ function parseCurrentRoute(pathname: string): RouteLocator | null {
   const pullRequestMatch = pathname.match(PR_PATH_PATTERN);
   if (pullRequestMatch) {
     const [, owner, repo, pullNumberText] = pullRequestMatch;
+    if (!owner || !repo || !pullNumberText) {
+      return null;
+    }
+
     const pullNumber = Number(pullNumberText);
     if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0) {
       return null;
@@ -609,12 +613,16 @@ function parseCurrentRoute(pathname: string): RouteLocator | null {
     return null;
   }
 
-  const comparison = parseComparisonSpec(compareMatch[3]);
+  const [, owner, repo, comparisonSpec] = compareMatch;
+  if (!owner || !repo || !comparisonSpec) {
+    return null;
+  }
+
+  const comparison = parseComparisonSpec(comparisonSpec);
   if (!comparison) {
     return null;
   }
 
-  const [, owner, repo] = compareMatch;
   return {
     kind: "compare",
     pageKind: "compare",

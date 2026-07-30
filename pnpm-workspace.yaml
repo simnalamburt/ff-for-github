@@ -2,3 +2,17 @@ allowBuilds:
   esbuild: false
   sharp: false
   spawn-sync: false
+
+peerDependencyRules:
+  allowedVersions:
+    # Rolldown's optional WASI binding pins @emnapi 1.11.2, while
+    # @napi-rs/wasm-runtime declares @emnapi 2.0 alpha peers.
+    "@napi-rs/wasm-runtime>@emnapi/core": "1.11.2"
+    "@napi-rs/wasm-runtime>@emnapi/runtime": "1.11.2"
+
+    # Oxlint loads eslint-plugin-solid for rule definitions only; this project
+    # does not use the transitive @typescript-eslint parser or TypeScript API.
+    "@typescript-eslint/project-service>typescript": "7"
+    "@typescript-eslint/tsconfig-utils>typescript": "7"
+    "@typescript-eslint/typescript-estree>typescript": "7"
+    "@typescript-eslint/utils>typescript": "7"

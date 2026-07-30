@@ -116,29 +116,29 @@ No, I am not using remote code.
 #### What user data do you plan to collect from users now or in the future? (See [FAQ] for more information)
 
 - [ ] Personally identifiable information \
-       For example: name, address, email address, age, or identification number
+      For example: name, address, email address, age, or identification number
 - [ ] Health information \
-       For example: heart rate data, medical history, symptoms, diagnoses, or
+      For example: heart rate data, medical history, symptoms, diagnoses, or
       procedures
 - [ ] Financial and payment information \
-       For example: transactions, credit card numbers, credit ratings, financial
+      For example: transactions, credit card numbers, credit ratings, financial
       statements, or payment history
 - [x] Authentication information \
-       For example: passwords, credentials, security question, or personal
+      For example: passwords, credentials, security question, or personal
       identification number (PIN)
 - [ ] Personal communications \
-       For example: emails, texts, or chat messages
+      For example: emails, texts, or chat messages
 - [ ] Location \
-       For example: region, IP address, GPS coordinates, or information about
+      For example: region, IP address, GPS coordinates, or information about
       things near the user’s device
 - [ ] Web history \
-       The list of web pages a user has visited, as well as associated data such
+      The list of web pages a user has visited, as well as associated data such
       as page title and time of visit
 - [ ] User activity \
-       For example: network monitoring, clicks, mouse position, scroll, or
+      For example: network monitoring, clicks, mouse position, scroll, or
       keystroke logging
 - [ ] Website content \
-       For example: text, images, sounds, videos, or hyperlinks
+      For example: text, images, sounds, videos, or hyperlinks
 
 #### I certify that the following disclosures are true:
 

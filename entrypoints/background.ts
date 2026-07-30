@@ -605,6 +605,10 @@ function parsePullRequestLocatorFromUrl(urlString: string) {
   }
 
   const [, owner, repo, pullNumberText] = match;
+  if (!owner || !repo || !pullNumberText) {
+    return null;
+  }
+
   const pullNumber = Number(pullNumberText);
   if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0) {
     return null;
@@ -634,9 +638,14 @@ function parseComparisonLocatorFromUrl(urlString: string) {
     return null;
   }
 
+  const [, owner, repo, encodedComparisonSpec] = match;
+  if (!owner || !repo || !encodedComparisonSpec) {
+    return null;
+  }
+
   let comparisonSpec: string;
   try {
-    comparisonSpec = decodeURIComponent(match[3]);
+    comparisonSpec = decodeURIComponent(encodedComparisonSpec);
   } catch {
     return null;
   }
@@ -652,7 +661,6 @@ function parseComparisonLocatorFromUrl(urlString: string) {
     return null;
   }
 
-  const [, owner, repo] = match;
   return {
     owner,
     repo,

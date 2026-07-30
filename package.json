@@ -25,10 +25,11 @@
     "@wxt-dev/module-solid": "^1.1.4",
     "chrome-types": "^0.1.436",
     "eslint-plugin-solid": "^0.14.5",
-    "oxfmt": "^0.55.0",
+    "oxfmt": "^0.61.0",
     "oxlint": "^1.76.0",
-    "typescript": "^6.0.3",
-    "wxt": "^0.20.27"
+    "typescript": "^7.0.2",
+    "vite": "^8.1.0",
+    "wxt": "^0.21.2"
   },
   "packageManager": "pnpm@11.18.0"
 }

@@ -17,18 +17,18 @@
     "postinstall": "wxt prepare"
   },
   "dependencies": {
-    "solid-js": "^1.9.13",
-    "valibot": "^1.4.1"
+    "solid-js": "^1.9.14",
+    "valibot": "^1.4.2"
   },
   "devDependencies": {
     "@wxt-dev/auto-icons": "^1.1.1",
     "@wxt-dev/module-solid": "^1.1.4",
-    "chrome-types": "^0.1.429",
+    "chrome-types": "^0.1.436",
     "eslint-plugin-solid": "^0.14.5",
     "oxfmt": "^0.55.0",
-    "oxlint": "^1.70.0",
+    "oxlint": "^1.76.0",
     "typescript": "^6.0.3",
-    "wxt": "^0.20.26"
+    "wxt": "^0.20.27"
   },
   "packageManager": "pnpm@11.18.0"
 }

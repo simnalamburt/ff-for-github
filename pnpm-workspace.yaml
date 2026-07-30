@@ -3,6 +3,10 @@ allowBuilds:
   sharp: false
   spawn-sync: false
 
+# TODO: Remove once https://github.com/wxt-dev/wxt/pull/2520 is released.
+overrides:
+  "@wxt-dev/auto-icons>sharp": 0.35.3
+
 peerDependencyRules:
   allowedVersions:
     # Rolldown's optional WASI binding pins @emnapi 1.11.2, while

@@ -216,7 +216,7 @@ const RootView: Component<{
 );
 
 export default defineContentScript({
-  matches: ["https://github.com/*/*/pull/*", "https://github.com/*/*/compare/*"],
+  matches: ["https://github.com/*"],
   runAt: "document_idle",
   main() {
     pageState.currentPath = location.pathname;

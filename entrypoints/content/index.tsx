@@ -216,9 +216,14 @@ const RootView: Component<{
 );
 
 export default defineContentScript({
+  // GitHub swaps pages client-side, so injection must happen on whatever real
+  // page load starts the session; the card still only mounts on pull/compare
+  // routes. Sign-in flows end in a full page load, so excluding them cannot
+  // miss an SPA entry, and it keeps the script out of credential pages.
   matches: ["https://github.com/*"],
+  excludeMatches: ["https://github.com/login*", "https://github.com/session*"],
   runAt: "document_idle",
-  main() {
+  main(ctx) {
     pageState.currentPath = location.pathname;
 
     const root = document.createElement("div");
@@ -244,25 +249,32 @@ export default defineContentScript({
 
     refresh(root, setPageKind, setState, setMergeState);
 
-    window.addEventListener("load", () => refresh(root, setPageKind, setState, setMergeState));
-    window.addEventListener("popstate", () => refresh(root, setPageKind, setState, setMergeState));
-    document.addEventListener(
-      "pjax:end",
-      () => refresh(root, setPageKind, setState, setMergeState),
-      true,
+    // Register through ctx so the timer and listeners stop when this instance
+    // is orphaned by an extension update or reload.
+    ctx.addEventListener(window, "load", () => refresh(root, setPageKind, setState, setMergeState));
+    ctx.addEventListener(window, "popstate", () =>
+      refresh(root, setPageKind, setState, setMergeState),
     );
-    document.addEventListener(
-      "turbo:load",
+    ctx.addEventListener(
+      document,
+      "pjax:end" as keyof DocumentEventMap,
       () => refresh(root, setPageKind, setState, setMergeState),
-      true,
+      { capture: true },
     );
-    document.addEventListener(
-      "turbo:render",
+    ctx.addEventListener(
+      document,
+      "turbo:load" as keyof DocumentEventMap,
       () => refresh(root, setPageKind, setState, setMergeState),
-      true,
+      { capture: true },
+    );
+    ctx.addEventListener(
+      document,
+      "turbo:render" as keyof DocumentEventMap,
+      () => refresh(root, setPageKind, setState, setMergeState),
+      { capture: true },
     );
 
-    setInterval(() => {
+    ctx.setInterval(() => {
       if (location.pathname !== pageState.currentPath) {
         pageState.currentPath = location.pathname;
         refresh(root, setPageKind, setState, setMergeState);
@@ -366,6 +378,16 @@ async function refresh(
     }
   }
 
+  // The script runs on every github.com page now, so bail out before the
+  // debounce timer when the current route can never show the card.
+  if (!parseCurrentRoute(location.pathname)) {
+    stopObservingMountTarget();
+    root.remove();
+    setPageKind(null);
+    setMergeState({ kind: "idle" });
+    return;
+  }
+
   if (pageState.scheduled) {
     return;
   }
@@ -440,6 +462,13 @@ async function refresh(
     if (options.bypassCache) {
       pageState.cache.delete(locator.signature);
     } else {
+      // One instance now survives a whole github.com browsing session, so
+      // sweep expired entries instead of letting the map grow unboundedly.
+      for (const [signature, entry] of pageState.cache) {
+        if (Date.now() - entry.cachedAt >= PAGE_CACHE_TTL_MS) {
+          pageState.cache.delete(signature);
+        }
+      }
       pageState.cache.set(locator.signature, {
         result,
         cachedAt: Date.now(),

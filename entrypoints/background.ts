@@ -68,8 +68,6 @@ class GitHubPersonalAccessTokenSetupRequiredError extends Error {
   }
 }
 
-const GITHUB_COMPARE_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/compare\/([^/]+)(?:\/.*)?$/;
-const GITHUB_PULL_REQUEST_PATH_PATTERN = /^\/([^/]+)\/([^/]+)\/pull\/(\d+)(?:\/.*)?$/;
 const ComparisonStatusRequestSchema = v.object({
   type: v.literal(GET_COMPARISON_STATUS),
   owner: v.string(),
@@ -178,8 +176,8 @@ async function getComparisonStatusResponse(
   sender: RuntimeMessageSender,
 ): Promise<ComparisonStatusResponse> {
   try {
-    const validatedRequest = validateComparisonRequestSender(request, sender);
-    const result = await getComparisonStatus(validatedRequest);
+    validateGitHubSender(sender);
+    const result = await getComparisonStatus(request);
     return { ok: true, result };
   } catch (error) {
     return {
@@ -194,8 +192,8 @@ async function getPullRequestStatusResponse(
   sender: RuntimeMessageSender,
 ): Promise<PullRequestStatusResponse> {
   try {
-    const validatedRequest = validatePullRequestRequestSender(request, sender);
-    const result = await getPullRequestStatus(validatedRequest);
+    validateGitHubSender(sender);
+    const result = await getPullRequestStatus(request);
     return { ok: true, result };
   } catch (error) {
     return {
@@ -210,8 +208,8 @@ async function mergeComparisonResponse(
   sender: RuntimeMessageSender,
 ): Promise<MergeComparisonResponse> {
   try {
-    const validatedRequest = validateComparisonRequestSender(request, sender);
-    await mergeComparison(validatedRequest);
+    validateGitHubSender(sender);
+    await mergeComparison(request);
     return { ok: true };
   } catch (error) {
     return {
@@ -226,8 +224,8 @@ async function mergePullRequestResponse(
   sender: RuntimeMessageSender,
 ): Promise<MergePullRequestResponse> {
   try {
-    const validatedRequest = validatePullRequestRequestSender(request, sender);
-    await mergePullRequest(validatedRequest);
+    validateGitHubSender(sender);
+    await mergePullRequest(request);
     return { ok: true };
   } catch (error) {
     return {
@@ -532,141 +530,29 @@ function isGitHubPersonalAccessTokenSetupFailure(error: GitHubApiError) {
   return error.status === 403 && !/rate limit/i.test(error.message);
 }
 
-function validateComparisonRequestSender<
-  T extends { owner: string; repo: string; base: string; head: string },
->(request: T, sender: RuntimeMessageSender): T {
-  const senderUrl = getSenderUrl(sender);
-  if (!senderUrl) {
-    throw new Error("Comparison requests must come from a GitHub page.");
+// Firefox fills in MessageSender.url once, when the content script's messaging
+// conduit first opens, and never updates it across History API navigations —
+// so after an SPA hop the sender URL still points at an earlier page. The
+// sender check therefore validates the origin only; requiring the sender path
+// to match the requested PR/comparison would reject every request made after
+// the first SPA navigation on Firefox. Path matching also stopped adding any
+// isolation once the content script began running on all github.com pages.
+function validateGitHubSender(sender: RuntimeMessageSender): void {
+  const senderUrl = sender.url ?? sender.tab?.url;
+  if (!senderUrl || !isGitHubPageUrl(senderUrl)) {
+    throw new Error("Requests are only allowed from GitHub pages.");
   }
-
-  const senderRequest = parseComparisonLocatorFromUrl(senderUrl);
-  if (!senderRequest) {
-    throw new Error("Comparison requests are only allowed from GitHub compare pages.");
-  }
-
-  if (
-    senderRequest.owner !== request.owner ||
-    senderRequest.repo !== request.repo ||
-    senderRequest.base !== request.base ||
-    senderRequest.head !== request.head
-  ) {
-    throw new Error("Comparison request did not match the sender tab.");
-  }
-
-  return request;
 }
 
-function validatePullRequestRequestSender<
-  T extends { owner: string; repo: string; pullNumber: number },
->(request: T, sender: RuntimeMessageSender): T {
-  const senderUrl = getSenderUrl(sender);
-  if (!senderUrl) {
-    throw new Error("Pull request status requests must come from a GitHub page.");
-  }
-
-  const senderRequest = parsePullRequestLocatorFromUrl(senderUrl);
-  if (!senderRequest) {
-    throw new Error(
-      "Pull request status requests are only allowed from GitHub pull request pages.",
-    );
-  }
-
-  if (
-    senderRequest.owner !== request.owner ||
-    senderRequest.repo !== request.repo ||
-    senderRequest.pullNumber !== request.pullNumber
-  ) {
-    throw new Error("Pull request status request did not match the sender tab.");
-  }
-
-  return request;
-}
-
-function getSenderUrl(sender: RuntimeMessageSender) {
-  return sender.url ?? sender.tab?.url;
-}
-
-function parsePullRequestLocatorFromUrl(urlString: string) {
+function isGitHubPageUrl(urlString: string): boolean {
   let url: URL;
   try {
     url = new URL(urlString);
   } catch {
-    return null;
+    return false;
   }
 
-  if (url.protocol !== "https:" || url.hostname !== "github.com") {
-    return null;
-  }
-
-  const match = url.pathname.match(GITHUB_PULL_REQUEST_PATH_PATTERN);
-  if (!match) {
-    return null;
-  }
-
-  const [, owner, repo, pullNumberText] = match;
-  if (!owner || !repo || !pullNumberText) {
-    return null;
-  }
-
-  const pullNumber = Number(pullNumberText);
-  if (!Number.isSafeInteger(pullNumber) || pullNumber <= 0) {
-    return null;
-  }
-
-  return {
-    owner,
-    repo,
-    pullNumber,
-  };
-}
-
-function parseComparisonLocatorFromUrl(urlString: string) {
-  let url: URL;
-  try {
-    url = new URL(urlString);
-  } catch {
-    return null;
-  }
-
-  if (url.protocol !== "https:" || url.hostname !== "github.com") {
-    return null;
-  }
-
-  const match = url.pathname.match(GITHUB_COMPARE_PATH_PATTERN);
-  if (!match) {
-    return null;
-  }
-
-  const [, owner, repo, encodedComparisonSpec] = match;
-  if (!owner || !repo || !encodedComparisonSpec) {
-    return null;
-  }
-
-  let comparisonSpec: string;
-  try {
-    comparisonSpec = decodeURIComponent(encodedComparisonSpec);
-  } catch {
-    return null;
-  }
-
-  const separatorIndex = comparisonSpec.indexOf("...");
-  if (separatorIndex <= 0) {
-    return null;
-  }
-
-  const base = comparisonSpec.slice(0, separatorIndex);
-  const head = comparisonSpec.slice(separatorIndex + 3);
-  if (!base || !head) {
-    return null;
-  }
-
-  return {
-    owner,
-    repo,
-    base,
-    head,
-  };
+  return url.protocol === "https:" && url.hostname === "github.com";
 }
 
 function encodeGitReference(reference: string) {

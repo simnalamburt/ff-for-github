@@ -88,11 +88,17 @@ content scripts cannot directly read the stored token.
 > "content_scripts" fields of the extension manifest
 
 Two GitHub host accesses are required for the extension’s single purpose. First,
-the content script runs on `https://github.com/*/*/pull/*` and
-`https://github.com/*/*/compare/*` so it can detect that the current page is a
-supported GitHub page, read the owner/repository and pull request number or
-comparison refs from the URL, and render the fast-forward status UI. It does not
-run on unrelated websites. Second, `https://api.github.com/*` is required as an
+the content script runs on `https://github.com/*` (excluding sign-in pages).
+GitHub is a single-page application: navigating inside github.com only rewrites
+the URL with the History API without a real page load, so a content script
+scoped to narrower path patterns is never injected when the user reaches a pull
+request or comparison page through GitHub’s own navigation. The script
+therefore has to be injected on the github.com page where browsing starts. It
+only watches the page URL, reads no page content, and renders the fast-forward
+status UI solely on pull request (`https://github.com/*/*/pull/*`) and
+comparison (`https://github.com/*/*/compare/*`) URLs, where it reads the
+owner/repository and pull request number or comparison refs from the URL. It
+does not run on unrelated websites. Second, `https://api.github.com/*` is required as an
 explicit host permission because the background worker calls the GitHub REST API
 to fetch pull request metadata, compare branches, validate the user’s GitHub
 token, and, only after the user explicitly clicks the merge button, update the

@@ -87,23 +87,19 @@ content scripts cannot directly read the stored token.
 > A host permission is any match pattern specified in the "permissions" and
 > "content_scripts" fields of the extension manifest
 
-Two GitHub host accesses are required for the extension’s single purpose. First,
-the content script runs on `https://github.com/*` (excluding sign-in pages).
-GitHub is a single-page application: navigating inside github.com only rewrites
-the URL with the History API without a real page load, so a content script
-scoped to narrower path patterns is never injected when the user reaches a pull
-request or comparison page through GitHub’s own navigation. The script
-therefore has to be injected on the github.com page where browsing starts. It
-only watches the page URL, reads no page content, and renders the fast-forward
-status UI solely on pull request (`https://github.com/*/*/pull/*`) and
-comparison (`https://github.com/*/*/compare/*`) URLs, where it reads the
-owner/repository and pull request number or comparison refs from the URL. It
-does not run on unrelated websites. Second, `https://api.github.com/*` is required as an
-explicit host permission because the background worker calls the GitHub REST API
-to fetch pull request metadata, compare branches, validate the user’s GitHub
-token, and, only after the user explicitly clicks the merge button, update the
-base branch reference to perform the fast-forward merge. No other external hosts
-are used.
+Two host accesses are needed. First, the content script runs on
+`https://github.com/*` (excluding sign-in pages). GitHub is a single-page app:
+in-site navigation only rewrites the URL via the History API, so a content
+script scoped to narrower paths is never injected when the user reaches a pull
+request or comparison page through GitHub’s own navigation; it must be injected
+where browsing starts. It only watches the page URL, reads no page content, and
+renders its UI solely on pull request (`https://github.com/*/*/pull/*`) and
+comparison (`/*/*/compare/*`) URLs, taking the owner/repository and pull request
+number or refs from that URL. It touches no other site. Second,
+`https://api.github.com/*` is needed because the background worker calls the
+GitHub REST API to fetch pull request metadata, compare branches, validate the
+user’s token, and — only when the user clicks the merge button — update the base
+branch ref to perform the fast-forward merge. No other external hosts are used.
 
 #### Are you using remote code?
 
